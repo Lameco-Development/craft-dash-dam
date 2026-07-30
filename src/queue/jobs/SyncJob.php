@@ -27,7 +27,7 @@ class SyncJob extends BaseJob
             return;
         }
 
-        $this->setProgress($queue, 0.1, Craft::t('_craft-dash', 'Reconciling with Dash'));
+        $this->setProgress($queue, 0.1, Craft::t('dash-dam', 'Reconciling with Dash'));
 
         $counts = $sync->reconcileAndAdvance($probe['now']);
 
@@ -45,6 +45,6 @@ class SyncJob extends BaseJob
 
     protected function defaultDescription(): ?string
     {
-        return Craft::t('_craft-dash', 'Syncing assets from Dash');
+        return Craft::t('dash-dam', 'Syncing assets from Dash');
     }
 }

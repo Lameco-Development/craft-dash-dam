@@ -304,7 +304,7 @@ class DashSync extends Component
         if ($titleFieldId === null) {
             $this->log(sprintf(
                 '  note: no title field found in Dash (looked for: %s) — titles left as they are.'
-                . ' Set the right name under Settings → Laméco Dash.',
+                . ' Set the right name under Settings → Dash DAM.',
                 implode(', ', $titleFieldNames),
             ));
         }
@@ -312,7 +312,7 @@ class DashSync extends Component
         if ($altFieldId === null) {
             $this->log(sprintf(
                 '  note: no alt-text field found in Dash (looked for: %s) — alt sync skipped.'
-                . ' Set the right name under Settings → Laméco Dash.',
+                . ' Set the right name under Settings → Dash DAM.',
                 implode(', ', $altFieldNames),
             ));
         }
