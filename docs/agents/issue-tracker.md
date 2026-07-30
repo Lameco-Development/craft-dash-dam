@@ -4,7 +4,7 @@ Issues and PRDs for this repo live as GitHub issues on **Lameco-Development/craf
 
 ## Repo pinning — read this first
 
-Until the Fivoor cut-over, this plugin is developed from inside the fivoor-website checkout (`local/craft-dash`), where `gh` infers the *site* repo. Always pass `--repo Lameco-Development/craft-dash-dam` explicitly to every `gh issue` / `gh api` command, or issues land in the wrong repo. After cut-over (own checkout), inference works and the flag is optional.
+Until the cut-over to a standalone checkout (issue #10), this plugin is developed from inside a host site's checkout (`local/craft-dash`), where `gh` infers the *site* repo. Always pass `--repo Lameco-Development/craft-dash-dam` explicitly to every `gh issue` / `gh api` command, or issues land in the wrong repo. After cut-over (own checkout), inference works and the flag is optional.
 
 ## Conventions
 

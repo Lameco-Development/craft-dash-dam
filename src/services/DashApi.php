@@ -166,7 +166,7 @@ class DashApi extends Component
             'redirect_uri' => $this->redirectUri(),
             'audience' => self::AUDIENCE,
             // offline_access is what makes Dash return a refresh token at all.
-            'scope' => 'subdomain:' . $this->setting('subdomain', 'the tenant part of your Dash URL, e.g. "fivoor" from fivoor.dash.app')
+            'scope' => 'subdomain:' . $this->setting('subdomain', 'the tenant part of your Dash URL, e.g. "acme" from acme.dash.app')
                 . ' offline_access',
         ]);
     }

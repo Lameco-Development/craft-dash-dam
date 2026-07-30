@@ -29,7 +29,7 @@ class Settings extends Model
     public string $clientSecret = '$DASH_CLIENT_SECRET';
 
     /**
-     * The tenant part of the Dash URL, e.g. "fivoor" from fivoor.dash.app, or an env reference.
+     * The tenant part of the Dash URL, e.g. "acme" from acme.dash.app, or an env reference.
      */
     public string $subdomain = '$DASH_SUBDOMAIN';
 
@@ -76,8 +76,8 @@ class Settings extends Model
      * Which Dash field holds the title, by name, comma-separated and most specific first.
      *
      * Dash's own default is "Title", but the name follows whatever language the account was
-     * set up in — Fivoor's is "titel". Matching is case-insensitive, and if none of these
-     * exist the Craft title is left alone rather than blanked.
+     * set up in — a Dutch-language account calls it "Titel". Matching is case-insensitive,
+     * and if none of these exist the Craft title is left alone rather than blanked.
      */
     public string $titleFieldNames = 'Title, Titel';
 
@@ -85,8 +85,9 @@ class Settings extends Model
      * Which Dash field holds alt text, by name, comma-separated and most specific first.
      *
      * Dash ships no alt-text field, so every account creates its own and names it whatever
-     * suits — Fivoor's is "ALT-tekst". Matching is case-insensitive. The first name that
-     * exists on the account wins, so several can be listed while a tenant settles on one.
+     * suits — the default list covers the common variants. Matching is case-insensitive.
+     * The first name that exists on the account wins, so several can be listed while a
+     * tenant settles on one.
      *
      * Nothing is synced if none of them match, which is deliberate: it distinguishes "this
      * account has no alt field" from "the field exists and is empty", and only the second

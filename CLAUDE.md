@@ -2,6 +2,19 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Stack
+
+Craft CMS 5 plugin, PHP 8.2+ (Composer platform pinned to 8.4). Handle `dash-dam`, package `lameco/craft-dash-dam`, namespace `lameco\dash`. No frontend build — the plugin ships Twig templates only.
+
+## Commands
+
+```bash
+composer check-cs   # ECS, dry run
+composer fix-cs     # ECS, applying fixes
+composer phpstan    # PHPStan (config in phpstan.neon)
+composer test       # PHPUnit — unit tests in tests/unit
+```
+
 ## Repo operations
 
 - PRs are squash-merged into `main`. The PR title must be a Conventional Commit (`feat:`/`fix:`/`refactor:`/`test:`/`chore:`/`ci:`/`docs:`) — it becomes the squash commit message that release-please reads.
@@ -13,7 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Issue tracker
 
-GitHub Issues on Lameco-Development/craft-dash-dam (pin `--repo` until the Fivoor cut-over). See `docs/agents/issue-tracker.md`.
+GitHub Issues on Lameco-Development/craft-dash-dam (pin `--repo` until the cut-over to a standalone checkout, issue #10). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
