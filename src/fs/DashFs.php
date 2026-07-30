@@ -47,9 +47,9 @@ class DashFs extends Fs
 
     public function getShowHasUrlSetting(): bool
     {
-        // Public URLs would come from Dash embeddable links, which are not yet
-        // available on this tenant (UNVERIFIED_FREE_TRIAL). Craft generates
-        // transforms from bytes instead.
+        // Public URLs would need Dash embeddable links — a possible future
+        // feature, out of scope for v1. Craft generates transforms from bytes
+        // instead.
         return false;
     }
 

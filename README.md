@@ -4,9 +4,45 @@ Mounts the Dash ([dash.app](https://www.dash.app)) DAM as a **read-only** Craft 
 Dash owns the files; Craft gets real `craft\elements\Asset` elements, so native transforms,
 `alt` text and every Assets field keep working untouched.
 
-Private plugin (handle `dash-dam`) — not for the Plugin Store.
+Private Laméco plugin. Every hard-to-reverse decision — handle, license model, settings
+through project config — is Plugin Store-compatible by design, but a Store submission is a
+deliberate future step, not part of v1.
+
+## Requirements
+
+- Craft CMS 5.0+
+- PHP 8.2+
+- A Dash account with REST API access (in Dash: **Admin → Integrations → REST API**)
+
+## Installation
+
+The package lives on GitHub, not Packagist, so add the repository to the project's
+`composer.json` first:
+
+```json
+{
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/Lameco-Development/craft-dash-dam"
+        }
+    ]
+}
+```
+
+Then require and install:
+
+```bash
+composer require lameco/craft-dash-dam:^1.0
+php craft plugin/install dash-dam
+```
+
+Installing creates the plugin's three `dash_*` tables: the Dash-id ↔ asset-id mapping, the
+sync state, and the client's folder selection.
 
 ## Setup
+
+### 1. Credentials
 
 Add the credentials to `.env` per environment. The plugin's credential settings hold
 env-variable *references* (Craft env syntax, resolved at runtime), so project config
@@ -24,6 +60,13 @@ DASH_REFRESH_TOKEN=
 DASH_REDIRECT_URI=
 ```
 
+The client id and secret come from **Admin → Integrations → REST API** in Dash. The
+subdomain is the tenant part of the Dash URL — `acme` from `acme.dash.app`. The redirect
+URI must exactly match a callback URL registered on the Dash API client (Dash's identity
+layer matches path included, not by origin).
+
+### 2. Get a refresh token
+
 Dash supports neither the client-credentials nor the password grant, so the refresh token
 is obtained once in a browser:
 
@@ -31,13 +74,62 @@ is obtained once in a browser:
 php craft dash/auth
 ```
 
+The command prints an authorisation URL; open it, authorise, and paste back the URL you
+were redirected to (a 404 on that page is fine). Authorise as a dedicated integration
+user, not a personal account — the token inherits the authorising user's permissions.
+
 The token is a credential rather than an environment-bound value, so the same one works in
 any environment using that API client. Dash does not rotate refresh tokens.
 
-Then create a filesystem of type **Dash**, and a volume using it with a writable
-`transformFs`. Name the volume whatever you like — the plugin finds it by its filesystem
-type, not by its handle. Only one volume may use a Dash filesystem: the plugin is
-single-tenant, and the sync refuses to run when more than one does.
+### 3. Create the filesystem and volume
+
+In this order, because each step selects the previous one:
+
+1. A **writable filesystem** for image transforms (e.g. Local), unless one exists to
+   reuse. The Dash filesystem is read-only, so Craft needs somewhere else to write
+   generated transforms.
+2. A filesystem of type **Dash**.
+3. A **volume** using the Dash filesystem, with **Transform Filesystem** set to the
+   writable one (give it a subpath to keep transforms tidy).
+
+Name the volume whatever you like — the plugin finds it by its filesystem type, not by its
+handle.
+
+### 4. Pick folders and run the first sync
+
+Under **Utilities → Dash**, choose which Dash folders are synced. Selecting a folder
+includes everything filed beneath it; with nothing selected, every folder is synced. Then:
+
+```bash
+php craft dash/sync
+```
+
+### 5. Add the cron entry
+
+`sync` is the cron entry point, and the only one the integration needs:
+
+```cron
+*/5 * * * * cd /path/to/site && php craft dash/sync
+```
+
+A count-only Dash search is 49 bytes regardless of library size, so most of those runs exit
+without doing work. The probe escalates to a full pass by itself once the last one is older
+than the reconcile interval, which is how a replaced file gets noticed — there is no second
+schedule to add.
+
+## Single tenant
+
+The plugin talks to exactly one Dash tenant. Only one volume may use a Dash filesystem:
+the sync refuses to run when more than one does. Syncing several tenants — or one tenant
+into several volumes — is out of scope for v1.
+
+## Supported file types
+
+Dash `IMAGE` and `VIDEO` assets sync; Audio, Document, Font and Dash's generic Other
+bucket are skipped and counted in the run report, never silently dropped. The list is a
+code-owned constant, not a setting, because each type on it has been verified end-to-end —
+checksums compared at every layer to prove the original bytes arrive, not a preview
+rendition. Widening it means verifying the new type the same way and shipping a release.
 
 ## Where configuration lives
 
@@ -51,10 +143,9 @@ Three places, split by who owns each one:
 
 The middle row is version-controlled and applied on deploy, so it must not hold secrets —
 which is why the credential settings hold `$DASH_CLIENT_ID`-style references rather than
-values. The
-bottom row deliberately is not: plugin settings go to project config, and a deploy applies
-the committed YAML over whatever is there — so anything the client changes in the control
-panel has to live outside it.
+values. The bottom row deliberately is not: plugin settings go to project config, and a
+deploy applies the committed YAML over whatever is there — so anything the client changes
+in the control panel has to live outside it.
 
 Settings can be overridden per environment from `config/dash-dam.php`:
 
@@ -87,6 +178,9 @@ php craft dash/auth            # one-time, interactive: get a refresh token
 php craft dash/reset           # forget everything synced, to point at another tenant
 ```
 
+Exit codes: `0` synced, `3` nothing changed, `4` another run holds the lock, `1` failed.
+`3` and `4` are both normal for cron.
+
 ## Pointing an environment at a different tenant
 
 The mapping table is keyed on Dash asset UUIDs, so swapping the credentials makes every
@@ -106,19 +200,18 @@ use before asking, and refuses to run non-interactively unless given `--force`.
 Do **not** use `sync --allowMassDeletion` for this. That flag is for a deletion that genuinely
 happened in Dash; against a tenant switch it would trash the assets rather than forget them.
 
-`sync` is the cron entry point, and the only one the integration needs:
+## Uninstalling
 
-```cron
-*/5 * * * * cd /path/to/site && php craft dash/sync
+Remove the volume first (**Settings → Assets**), then its Dash filesystem, then uninstall:
+
+```bash
+php craft plugin/uninstall dash-dam
 ```
 
-A count-only Dash search is 49 bytes regardless of library size, so most of those runs exit
-without doing work. The probe escalates to a full pass by itself once the last one is older
-than the reconcile interval, which is how a replaced file gets noticed — there is no second
-schedule to add.
-
-Exit codes: `0` synced, `3` nothing changed, `4` another run holds the lock, `1` failed.
-`3` and `4` are both normal for cron.
+Order matters: uninstalling removes the filesystem type, which turns any volume still
+using it into a broken one Craft cannot clean up. Uninstalling drops the `dash_*` tables,
+including the Dash-id mapping — a later reinstall starts from nothing, and its sync
+creates new asset elements that old relations do not point at.
 
 ## Why the reconciler owns the lifecycle
 
