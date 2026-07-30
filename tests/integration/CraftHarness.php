@@ -121,6 +121,7 @@ final class CraftHarness
         // over two connections whose transactions then block each other.
         Db::reset();
         Session::reset();
+        /** @phpstan-ignore assign.propertyType (between apps there is genuinely no app; Craft's own TestSetup does the same) */
         Craft::$app = null;
 
         // The app graph is cyclic, so anything it still holds open — connections, file
