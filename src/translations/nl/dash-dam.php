@@ -1,9 +1,7 @@
 <?php
 
 /**
- * Keys are the English source strings, kept in alphabetical order. Every new user-facing
- * string gets its entry here in the same PR — see CLAUDE.md; tests/unit/TranslationsTest
- * fails on a missing or stale entry.
+ * Keys are the English source strings, kept in alphabetical order.
  */
 return [
     'A sync runs automatically every few minutes, so this is only needed when you want a change from Dash straight away.' => 'Er draait automatisch elke paar minuten een synchronisatie, dus dit is alleen nodig wanneer je een wijziging uit Dash meteen wilt zien.',
