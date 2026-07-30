@@ -13,6 +13,7 @@ use lameco\dash\DashVolumes;
 use lameco\dash\errors\DashApiException;
 use lameco\dash\fs\DashFs;
 use lameco\dash\helpers\CanonicalFolder;
+use lameco\dash\helpers\ProbeDecision;
 use lameco\dash\Plugin;
 use Throwable;
 use yii\base\Component;
@@ -151,15 +152,20 @@ class DashSync extends Component
         // that can see a deletion.
         $remoteTotal = $this->api()->countAssets(['type' => 'MATCH_ALL']);
         $knownTotal = $this->state('remoteTotal');
-        $countChanged = $knownTotal === null || (int)$knownTotal !== $remoteTotal;
         $mappedTotal = (int)Craft::$app->getDb()
             ->createCommand('SELECT COUNT(*) FROM ' . self::MAP_TABLE)
             ->queryScalar();
 
         // Every reconcile rescans the whole library and compares checksums, so the
         // watermark doubles as "when everything was last verified".
-        $ageMinutes = $watermark === null ? null : (time() - strtotime($watermark)) / 60;
-        $stale = $ageMinutes !== null && $ageMinutes >= $this->fullReconcileMinutes;
+        $decision = ProbeDecision::evaluate(
+            $watermark,
+            $modified,
+            $remoteTotal,
+            $knownTotal === null ? null : (int)$knownTotal,
+            time(),
+            $this->fullReconcileMinutes,
+        );
 
         return [
             'now' => $now,
@@ -168,10 +174,7 @@ class DashSync extends Component
             'remoteTotal' => $remoteTotal,
             'knownTotal' => $knownTotal === null ? null : (int)$knownTotal,
             'mappedTotal' => $mappedTotal,
-            'countChanged' => $countChanged,
-            'stale' => $stale,
-            'watermarkAgeMinutes' => $ageMinutes,
-            'changed' => $watermark === null || $modified > 0 || $countChanged || $stale,
+            ...$decision,
         ];
     }
 
