@@ -232,6 +232,14 @@ class DashSync extends Component
         $this->syncMapped($volume, $dash, $allIds, $byAssetId, $knownChecksum, $wasMissing, $altSyncable, $counts);
         $this->createMissing($volume, $dash, $byAssetId, $altSyncable, $counts);
 
+        // Last, so it works on assets that have finished moving and had stale derivatives
+        // cleared. Reads the mapping table fresh — createMissing() has added rows since.
+        $mappedIds = array_map('intval', $db->createCommand('SELECT assetId FROM ' . self::MAP_TABLE)->queryColumn());
+        $transforms = $this->transforms()->ensureTransforms($mappedIds);
+        $counts['transformed'] = $transforms['generated'];
+        $counts['transformsDeferred'] = $transforms['deferred'];
+        $counts['failed'] += $transforms['failed'];
+
         return $counts;
     }
 
@@ -801,5 +809,13 @@ class DashSync extends Component
     private function config(): DashConfig
     {
         return Plugin::getInstance()->getDashConfig();
+    }
+
+    private function transforms(): DashTransforms
+    {
+        $transforms = Plugin::getInstance()->getDashTransforms();
+        $transforms->logger ??= $this->logger;
+
+        return $transforms;
     }
 }

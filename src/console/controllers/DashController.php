@@ -229,7 +229,7 @@ class DashController extends Controller
     private function summarise(array $counts): string
     {
         return sprintf(
-            '%d created, %d moved, %d retitled, %d alt-synced, %d resized, %d content-changed, %d trashed%s%s%s%s%s',
+            '%d created, %d moved, %d retitled, %d alt-synced, %d resized, %d content-changed, %d trashed%s%s%s%s%s%s%s',
             $counts['created'],
             $counts['moved'],
             $counts['retitled'],
@@ -239,6 +239,8 @@ class DashController extends Controller
             $counts['trashed'],
             $counts['returned'] > 0 ? ", {$counts['returned']} back in Dash" : '',
             $counts['outOfScope'] > 0 ? ", {$counts['outOfScope']} left alone (outside selected folders)" : '',
+            $counts['transformed'] > 0 ? ", {$counts['transformed']} transformed" : '',
+            $counts['transformsDeferred'] > 0 ? ", {$counts['transformsDeferred']} awaiting transforms" : '',
             $counts['inUse'] > 0 ? ", {$counts['inUse']} GONE FROM DASH BUT STILL IN USE" : '',
             $counts['skippedUnsupported'] > 0 ? ", {$counts['skippedUnsupported']} skipped (unsupported file type)" : '',
             $counts['failed'] > 0 ? ", {$counts['failed']} FAILED" : '',

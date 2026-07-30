@@ -15,6 +15,7 @@ use lameco\dash\models\Settings;
 use lameco\dash\services\DashApi;
 use lameco\dash\services\DashConfig;
 use lameco\dash\services\DashSync;
+use lameco\dash\services\DashTransforms;
 use lameco\dash\utilities\DashUtility;
 
 /**
@@ -25,6 +26,7 @@ use lameco\dash\utilities\DashUtility;
  * @property-read DashApi $dashApi
  * @property-read DashConfig $dashConfig
  * @property-read DashSync $dashSync
+ * @property-read DashTransforms $dashTransforms
  */
 class Plugin extends BasePlugin
 {
@@ -38,6 +40,7 @@ class Plugin extends BasePlugin
                 'dashApi' => DashApi::class,
                 'dashConfig' => DashConfig::class,
                 'dashSync' => DashSync::class,
+                'dashTransforms' => DashTransforms::class,
             ],
         ];
     }
@@ -90,5 +93,10 @@ class Plugin extends BasePlugin
     public function getDashSync(): DashSync
     {
         return $this->get('dashSync');
+    }
+
+    public function getDashTransforms(): DashTransforms
+    {
+        return $this->get('dashTransforms');
     }
 }
