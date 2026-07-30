@@ -12,8 +12,6 @@ use craft\events\ModelEvent;
 use craft\events\RegisterElementSourcesEvent;
 use craft\helpers\Json;
 use craft\services\Elements;
-use lameco\dash\services\DashSync;
-use Throwable;
 
 /**
  * Keeps the Dash volume read-only where it has to be, while leaving alt text editable.
@@ -52,7 +50,7 @@ class ReadOnlyGuard
     {
         foreach (self::DENIED_EVENTS as $name) {
             Event::on(Elements::class, $name, static function(AuthorizationCheckEvent $event) {
-                if (self::isDashAsset($event->element)) {
+                if (DashVolumes::isDashAsset($event->element)) {
                     $event->authorized = false;
                 }
             });
@@ -62,7 +60,7 @@ class ReadOnlyGuard
             /** @var Asset $asset */
             $asset = $event->sender;
 
-            if (!self::isDashAsset($asset)) {
+            if (!DashVolumes::isDashAsset($asset)) {
                 return;
             }
 
@@ -100,7 +98,7 @@ class ReadOnlyGuard
         // taken out of the page here. This is presentation only: the real enforcement is the
         // before-save guard above, which refuses the write whatever the markup says.
         Event::on(Asset::class, Element::EVENT_DEFINE_META_FIELDS_HTML, static function(DefineHtmlEvent $event) {
-            if (!self::isDashAsset($event->sender)) {
+            if (!DashVolumes::isDashAsset($event->sender)) {
                 return;
             }
 
@@ -166,16 +164,21 @@ JS);
         });
 
         Event::on(Asset::class, Element::EVENT_REGISTER_SOURCES, static function(RegisterElementSourcesEvent $event) {
-            $volume = Craft::$app->getVolumes()->getVolumeByHandle(DashSync::VOLUME_HANDLE);
+            $keys = [];
 
-            if ($volume === null) {
+            // The sync refuses to run against more than one Dash volume, but the guard has
+            // no reason to be that strict: every volume backed by a Dash filesystem is
+            // read-only, so all of them lose their upload affordances.
+            foreach (DashVolumes::all() as $volume) {
+                $keys['volume:' . $volume->uid] = true;
+            }
+
+            if ($keys === []) {
                 return;
             }
 
-            $key = 'volume:' . $volume->uid;
-
             foreach ($event->sources as &$source) {
-                if (($source['key'] ?? null) !== $key) {
+                if (!isset($keys[$source['key'] ?? ''])) {
                     continue;
                 }
 
@@ -186,20 +189,5 @@ JS);
                 $source['data']['can-move-to'] = false;
             }
         });
-    }
-
-    private static function isDashAsset(?object $element): bool
-    {
-        if (!$element instanceof Asset) {
-            return false;
-        }
-
-        try {
-            return $element->getVolume()->handle === DashSync::VOLUME_HANDLE;
-        } catch (Throwable) {
-            // A temporary upload has no real volume yet, and a missing one throws. Neither is
-            // a Dash asset, and neither is worth failing a save or an authorization check over.
-            return false;
-        }
     }
 }

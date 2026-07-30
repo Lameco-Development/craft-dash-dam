@@ -6,6 +6,7 @@ use Craft;
 use craft\console\Controller;
 use craft\elements\Asset;
 use craft\helpers\Console;
+use lameco\dash\DashVolumes;
 use lameco\dash\errors\DashApiException;
 use lameco\dash\Plugin;
 use lameco\dash\services\DashSync;
@@ -13,7 +14,7 @@ use Throwable;
 use yii\console\ExitCode;
 
 /**
- * Syncs the `dash` volume with the Dash DAM.
+ * Syncs the Dash volume with the Dash DAM.
  *
  *     php craft dash/sync            # probe, and reconcile only if something changed
  *     php craft dash/sync --force    # reconcile regardless
@@ -78,21 +79,14 @@ class DashController extends Controller
     {
         try {
             $sync = $this->sync();
-            $volume = Craft::$app->getVolumes()->getVolumeByHandle(DashSync::VOLUME_HANDLE);
-
-            if ($volume === null) {
-                $this->stderr("No volume with handle '" . DashSync::VOLUME_HANDLE . "'.\n", Console::FG_RED);
-
-                return ExitCode::UNSPECIFIED_ERROR;
-            }
-
+            $volume = DashVolumes::single();
             $assetIds = Asset::find()->volumeId($volume->id)->status(null)->ids();
             $uses = $sync->usageCounts($assetIds);
             $mapped = (int)Craft::$app->getDb()
                 ->createCommand('SELECT COUNT(*) FROM {{%dash_asset_map}}')->queryScalar();
 
             $this->stdout("\nThis will forget everything synced from Dash on this environment:\n\n");
-            $this->stdout('  ' . count($assetIds) . " asset(s) in the '" . DashSync::VOLUME_HANDLE . "' volume → trash\n");
+            $this->stdout('  ' . count($assetIds) . " asset(s) in the '{$volume->handle}' volume → trash\n");
             $this->stdout("  {$mapped} Dash id mapping(s) → deleted\n");
             $this->stdout("  the sync watermark → cleared\n");
             $this->stdout("  the folder selection → kept\n");
