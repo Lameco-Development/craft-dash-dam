@@ -5,11 +5,12 @@ namespace lameco\dash\controllers;
 use Craft;
 use craft\web\Controller;
 use lameco\dash\Plugin;
+use lameco\dash\queue\jobs\SyncJob;
 use lameco\dash\utilities\DashUtility;
 use yii\web\Response;
 
 /**
- * Saves the folder selection posted from the Dash utility.
+ * Actions behind the Dash utility.
  *
  * The utility's own permission governs whether the page is reachable, but Craft only checks
  * that when rendering the utility — an action has to check for itself, or anyone who can
@@ -17,6 +18,24 @@ use yii\web\Response;
  */
 class ConfigController extends Controller
 {
+    /**
+     * Queues a reconcile rather than running one, because a real library takes minutes.
+     */
+    public function actionSync(): ?Response
+    {
+        $this->requirePostRequest();
+        $this->requirePermission('utility:' . DashUtility::id());
+
+        Craft::$app->getQueue()->push(new SyncJob(['force' => true]));
+
+        Craft::$app->getSession()->setNotice(Craft::t(
+            '_craft-dash',
+            'Syncing with Dash. Reload this page once the job has finished to see the result.',
+        ));
+
+        return $this->redirectToPostedUrl();
+    }
+
     public function actionSaveFolders(): ?Response
     {
         $this->requirePostRequest();

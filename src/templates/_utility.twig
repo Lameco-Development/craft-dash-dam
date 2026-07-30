@@ -1,13 +1,25 @@
 {% import '_includes/forms.twig' as forms %}
 
-{% if lastSync %}
+<div class="flex flex-nowrap" style="align-items: baseline; justify-content: space-between;">
     <p class="light">
-        {{ 'Last verified against Dash'|t('_craft-dash') }}:
-        {{ lastSync|datetime('short') }}
+        {% if lastSync %}
+            {{ 'Last verified against Dash'|t('_craft-dash') }}: {{ lastSync|datetime('short') }}
+        {% else %}
+            {{ 'Dash has never been synced on this environment.'|t('_craft-dash') }}
+        {% endif %}
     </p>
-{% else %}
-    <p class="light">{{ 'Dash has never been synced on this environment.'|t('_craft-dash') }}</p>
-{% endif %}
+
+    <form method="post" accept-charset="UTF-8">
+        {{ csrfInput() }}
+        {{ actionInput('_craft-dash/config/sync') }}
+        {{ redirectInput('utilities/dash') }}
+        <button type="submit" class="btn">{{ 'Sync now'|t('_craft-dash') }}</button>
+    </form>
+</div>
+
+<p class="light">
+    {{ 'A sync runs automatically every few minutes, so this is only needed when you want a change from Dash straight away.'|t('_craft-dash') }}
+</p>
 
 <h2>{{ 'Deleted in Dash, still here'|t('_craft-dash') }}</h2>
 
