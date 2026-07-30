@@ -120,7 +120,7 @@ class DashSync extends Component
     }
 
     /**
-     * @return array{now: string, watermark: string|null, modified: int|null, remoteTotal: int, mappedTotal: int, countMismatch: bool, stale: bool, watermarkAgeMinutes: float|null, changed: bool}
+     * @return array{now: string, watermark: string|null, modified: int|null, remoteTotal: int, knownTotal: int|null, mappedTotal: int, countChanged: bool, stale: bool, watermarkAgeMinutes: float|null, changed: bool}
      */
     public function probe(): array
     {
@@ -242,7 +242,7 @@ class DashSync extends Component
 
         $counts = ['adopted' => 0, 'unmatched' => 0, 'created' => 0, 'moved' => 0, 'retitled' => 0,
             'altSynced' => 0, 'resized' => 0, 'restamped' => 0, 'trashed' => 0, 'inUse' => 0, 'returned' => 0,
-            'outOfScope' => 0, 'failed' => 0, 'skippedUnsupported' => array_sum($skippedByType)];
+            'outOfScope' => 0, 'failed' => 0, 'skippedUnsupported' => array_sum($skippedByType), ];
 
         $this->adoptUnmapped($volume, $dash, $byAssetId, $counts);
         $this->syncMapped($volume, $dash, $allIds, $byAssetId, $knownChecksum, $wasMissing, $altSyncable, $counts);
