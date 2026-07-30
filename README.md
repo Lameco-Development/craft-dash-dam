@@ -63,6 +63,18 @@ return [
 ];
 ```
 
+## When an asset is in more than one Dash folder
+
+Dash allows an asset any number of folders; Craft allows exactly one. The plugin picks the
+Craft folder with a fixed rule: **folders inside the sync selection win, then the
+alphabetically first full path**. An asset in no folder at all lands in `Unfiled`.
+
+The rule is deterministic on purpose — it never depends on the order Dash happens to
+return folder assignments, so the same library state always produces the same paths. It
+also means an asset filed in both a selected and an unselected folder syncs into the
+selected one rather than being skipped. Each multi-folder asset is noted in the log, in
+case the ambiguity is worth cleaning up in Dash itself.
+
 ## Commands
 
 ```bash

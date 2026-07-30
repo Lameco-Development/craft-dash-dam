@@ -12,6 +12,7 @@ use DateTime;
 use lameco\dash\DashVolumes;
 use lameco\dash\errors\DashApiException;
 use lameco\dash\fs\DashFs;
+use lameco\dash\helpers\CanonicalFolder;
 use lameco\dash\Plugin;
 use Throwable;
 use yii\base\Component;
@@ -41,7 +42,6 @@ class DashSync extends Component
      */
     public const BADGE_CACHE_KEY = 'dash.missingCount';
 
-    private const UNFILED = 'Unfiled';
     private const MUTEX_NAME = 'lameco:dashSync';
 
     /** How many assets are hydrated at once, so a 5000-asset library stays bounded. */
@@ -347,15 +347,19 @@ class DashSync extends Component
                 $asset['metadata']['values'][$folderFieldId] ?? [],
             )));
 
-            if (!$config->includesFolder($folders[0] ?? self::UNFILED)) {
+            // The pick prefers in-scope folders, so an asset is only out of scope when
+            // none of its folders are selected — not when Dash happens to list an
+            // unselected one first.
+            $dirname = CanonicalFolder::pick($folders, $config->includesFolder(...));
+
+            if (!$config->includesFolder($dirname)) {
                 $outOfScope++;
                 continue;
             }
 
             $assets[$asset['id']] = [
                 // Must match DashFs exactly, or the two disagree on every path.
-                'path' => ($folders[0] ?? self::UNFILED) . '/'
-                    . DashFs::craftFilename($file['filename'], $asset['id']),
+                'path' => $dirname . '/' . DashFs::craftFilename($file['filename'], $asset['id']),
                 'title' => $titleFieldId !== null ? ($asset['metadata']['values'][$titleFieldId][0] ?? null) : null,
                 'alt' => $altFieldId !== null ? ($asset['metadata']['values'][$altFieldId][0] ?? null) : null,
                 'checksum' => $file['checksum'] ?? null,
