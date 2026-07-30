@@ -54,6 +54,40 @@ final class MassDisappearanceTest extends IntegrationTestCase
         self::assertCount(1, $this->mapRows());
     }
 
+    public function testSmallShareOfALargeLibraryReconcilesEvenAboveTheFloor(): void
+    {
+        // Sixty extra assets make the six removals a 9% share: over the absolute floor,
+        // under the 10% threshold — the ordinary-deletions case for a large library.
+        for ($i = 1; $i <= 60; $i++) {
+            $suffix = str_pad((string)$i, 12, '0', STR_PAD_LEFT);
+            $this->dash->addAsset([
+                'id' => sprintf('bulk%04d', $i) . "-0000-4000-8000-{$suffix}",
+                'dateLastModified' => '2026-07-01T11:00:00Z',
+                'currentAssetFile' => [
+                    'filename' => "bulk-{$i}.jpg",
+                    'fileType' => 'IMAGE',
+                    'checksum' => "checksum-bulk-{$i}",
+                    'size' => 1000,
+                    'previewUrl' => "https://fake.dash/preview/bulk-{$i}",
+                    'dimensions' => ['width' => 100, 'height' => 100],
+                ],
+                'metadata' => ['values' => ['f-folders' => ['opt-archief']]],
+            ]);
+        }
+
+        $this->reconcile();
+        self::assertCount(67, $this->mapRows());
+
+        foreach (self::REMOVED as $dashId) {
+            $this->dash->remove($dashId);
+        }
+
+        $counts = $this->reconcile();
+
+        self::assertSame(6, $counts['trashed']);
+        self::assertCount(61, $this->mapRows());
+    }
+
     public function testLossesAtTheFloorStillReconcileSoSmallLibrariesKeepWorking(): void
     {
         $this->reconcile();
