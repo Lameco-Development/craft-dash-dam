@@ -35,7 +35,9 @@ The token is a credential rather than an environment-bound value, so the same on
 any environment using that API client. Dash does not rotate refresh tokens.
 
 Then create a filesystem of type **Dash**, and a volume using it with a writable
-`transformFs`.
+`transformFs`. Name the volume whatever you like — the plugin finds it by its filesystem
+type, not by its handle. Only one volume may use a Dash filesystem: the plugin is
+single-tenant, and the sync refuses to run when more than one does.
 
 ## Where configuration lives
 

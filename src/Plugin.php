@@ -70,7 +70,7 @@ class Plugin extends BasePlugin
         // directly. It is signed and expiring, so it must never reach rendered site HTML that
         // Blitz will cache — a control panel thumbnail is the one place that is safe.
         Event::on(Assets::class, Assets::EVENT_DEFINE_THUMB_URL, static function(DefineAssetThumbUrlEvent $event) {
-            if ($event->asset->getVolume()->handle !== DashSync::VOLUME_HANDLE) {
+            if (!DashVolumes::isDashAsset($event->asset)) {
                 return;
             }
 

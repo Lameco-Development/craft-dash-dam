@@ -9,6 +9,7 @@ use craft\helpers\Db;
 use craft\helpers\Image;
 use craft\models\Volume;
 use DateTime;
+use lameco\dash\DashVolumes;
 use lameco\dash\errors\DashApiException;
 use lameco\dash\fs\DashFs;
 use lameco\dash\Plugin;
@@ -16,7 +17,7 @@ use Throwable;
 use yii\base\Component;
 
 /**
- * Keeps the `dash` volume in step with the Dash DAM.
+ * Keeps the Dash volume in step with the Dash DAM.
  *
  * Craft's AssetIndexer is deliberately never run against this volume. It matches on
  * filename + folderId, so a move or rename in Dash reads as "one file missing, one file
@@ -30,8 +31,6 @@ use yii\base\Component;
  */
 class DashSync extends Component
 {
-    public const VOLUME_HANDLE = 'dash';
-
     private const MAP_TABLE = '{{%dash_asset_map}}';
     private const STATE_TABLE = '{{%dash_sync_state}}';
 
@@ -124,6 +123,12 @@ class DashSync extends Component
      */
     public function probe(): array
     {
+        // The probe itself never touches the volume, but a missing or ambiguous one must
+        // surface here rather than at reconcile time: cron runs probe-then-maybe-reconcile,
+        // and a misconfigured install should say what to fix instead of reporting "no
+        // changes" until the next full pass happens to run.
+        DashVolumes::single();
+
         // Taken before the probe, so changes made while a sync runs are picked up by the
         // next run rather than skipped.
         $now = gmdate('Y-m-d\TH:i:s\Z');
@@ -207,12 +212,7 @@ class DashSync extends Component
      */
     public function reconcile(): array
     {
-        $volume = Craft::$app->getVolumes()->getVolumeByHandle(self::VOLUME_HANDLE);
-
-        if ($volume === null) {
-            throw new DashApiException("No volume with handle '" . self::VOLUME_HANDLE . "'.");
-        }
-
+        $volume = DashVolumes::single();
         $db = Craft::$app->getDb();
         [
             'assets' => $dash,
@@ -859,12 +859,7 @@ class DashSync extends Component
      */
     public function reset(): array
     {
-        $volume = Craft::$app->getVolumes()->getVolumeByHandle(self::VOLUME_HANDLE);
-
-        if ($volume === null) {
-            throw new DashApiException("No volume with handle '" . self::VOLUME_HANDLE . "'.");
-        }
-
+        $volume = DashVolumes::single();
         $db = Craft::$app->getDb();
         $elements = Craft::$app->getElements();
         $transforms = Craft::$app->getImageTransforms();
