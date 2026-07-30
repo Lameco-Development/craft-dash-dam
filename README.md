@@ -30,7 +30,9 @@ The package lives on GitHub, not Packagist, so add the repository to the project
 }
 ```
 
-Then require and install:
+The repository is private, so Composer needs a GitHub credential that can read it — a
+token in `auth.json` (`composer config github-oauth.github.com <token>`) or whatever
+Composer already uses for other Laméco packages. Then require and install:
 
 ```bash
 composer require lameco/craft-dash-dam:^1.0
