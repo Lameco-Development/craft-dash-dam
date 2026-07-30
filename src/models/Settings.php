@@ -12,7 +12,7 @@ use craft\base\Model;
  * folder selection lives in the plugin's own table, which a deploy does not overwrite. See
  * services/DashConfig.php.
  *
- * Overridable per environment from `config/_craft-dash.php`.
+ * Overridable per environment from `config/dash-dam.php`.
  */
 class Settings extends Model
 {

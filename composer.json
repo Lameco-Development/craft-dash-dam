@@ -1,5 +1,5 @@
 {
-    "name": "lameco/craft-dash",
+    "name": "lameco/craft-dash-dam",
     "description": "Read-only Dash (dash.app) DAM integration for Craft CMS, mounted as a volume",
     "type": "craft-plugin",
     "license": "proprietary",
@@ -24,8 +24,8 @@
         }
     ],
     "extra": {
-        "handle": "_craft-dash",
-        "name": "Laméco Dash",
+        "handle": "dash-dam",
+        "name": "Dash DAM",
         "developer": "Laméco",
         "documentationUrl": ""
     },

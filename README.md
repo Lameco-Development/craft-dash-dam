@@ -1,10 +1,10 @@
-# Laméco Dash
+# Dash DAM
 
 Mounts the Dash ([dash.app](https://www.dash.app)) DAM as a **read-only** Craft 5 volume.
 Dash owns the files; Craft gets real `craft\elements\Asset` elements, so native transforms,
 `alt` text and every Assets field keep working untouched.
 
-Private plugin (handle `_craft-dash`) — not for the Plugin Store.
+Private plugin (handle `dash-dam`) — not for the Plugin Store.
 
 ## Setup
 
@@ -44,7 +44,7 @@ Three places, split by who owns each one:
 | | Where | Owner |
 |---|---|---|
 | Credentials | `.env` | developer, per environment, never committed |
-| Reconcile interval, orphan threshold, trash behaviour | **Settings → Laméco Dash** (project config) | developer, committed |
+| Reconcile interval, orphan threshold, trash behaviour | **Settings → Dash DAM** (project config) | developer, committed |
 | Which Dash folders are synced | **Utilities → Dash** (plugin table) | the client, changeable any time |
 
 The middle row is version-controlled and applied on deploy, so it must not hold secrets. The
@@ -52,7 +52,7 @@ bottom row deliberately is not: plugin settings go to project config, and a depl
 the committed YAML over whatever is there — so anything the client changes in the control
 panel has to live outside it.
 
-Settings can be overridden per environment from `config/_craft-dash.php`:
+Settings can be overridden per environment from `config/dash-dam.php`:
 
 ```php
 return [
