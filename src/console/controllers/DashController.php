@@ -316,8 +316,10 @@ class DashController extends Controller
         $this->stdout('modified since : ' . ($probe['modified'] ?? 'n/a') . "\n");
         $this->stdout("assets in Dash : {$probe['remoteTotal']}   (mapped in Craft: {$probe['mappedTotal']})\n");
 
-        if ($probe['countMismatch']) {
-            $this->stdout("  → count mismatch: something was added or deleted\n");
+        if ($probe['countChanged']) {
+            $this->stdout($probe['knownTotal'] === null
+                ? "  → no previous count recorded: treating as changed\n"
+                : "  → count changed since the last sync ({$probe['knownTotal']} → {$probe['remoteTotal']}): something was added or deleted\n");
         }
 
         if ($probe['stale']) {
@@ -332,7 +334,7 @@ class DashController extends Controller
     private function summarise(array $counts): string
     {
         return sprintf(
-            '%d created, %d moved, %d retitled, %d alt-synced, %d resized, %d content-changed, %d trashed%s%s%s%s%s%s%s',
+            '%d created, %d moved, %d retitled, %d alt-synced, %d resized, %d content-changed, %d trashed%s%s%s%s%s%s%s%s',
             $counts['created'],
             $counts['moved'],
             $counts['retitled'],
@@ -344,6 +346,7 @@ class DashController extends Controller
             $counts['outOfScope'] > 0 ? ", {$counts['outOfScope']} left alone (outside selected folders)" : '',
             $counts['transformed'] > 0 ? ", {$counts['transformed']} transformed" : '',
             $counts['transformsDeferred'] > 0 ? ", {$counts['transformsDeferred']} awaiting transforms" : '',
+            $counts['foldersPruned'] > 0 ? ", {$counts['foldersPruned']} empty folder(s) removed" : '',
             $counts['inUse'] > 0 ? ", {$counts['inUse']} GONE FROM DASH BUT STILL IN USE" : '',
             $counts['skippedUnsupported'] > 0 ? ", {$counts['skippedUnsupported']} skipped (unsupported file type)" : '',
             $counts['failed'] > 0 ? ", {$counts['failed']} FAILED" : '',

@@ -138,10 +138,18 @@ class DashSync extends Component
             'field' => ['type' => 'FIXED', 'fieldName' => 'DATE_LAST_MODIFIED'],
         ]);
 
-        // DATE_LAST_MODIFIED structurally cannot surface a deletion — a removed asset
-        // simply stops matching any search. Comparing totals is the only cheap way to
-        // notice one.
+        // DATE_LAST_MODIFIED structurally cannot surface a deletion — a removed asset simply
+        // stops matching any search. Comparing totals is the only cheap way to notice one.
+        //
+        // Against the total this environment last saw, not against how many assets are
+        // mapped. Those two are only equal when the whole library is synced, which stopped
+        // being true once folders could be scoped and unsupported file types skipped: with
+        // 376 assets in Dash and 282 mapped, a mapped-count comparison reports "changed" on
+        // every run forever, which both defeats the cheap probe and destroys the one signal
+        // that can see a deletion.
         $remoteTotal = $this->api()->countAssets(['type' => 'MATCH_ALL']);
+        $knownTotal = $this->state('remoteTotal');
+        $countChanged = $knownTotal === null || (int)$knownTotal !== $remoteTotal;
         $mappedTotal = (int)Craft::$app->getDb()
             ->createCommand('SELECT COUNT(*) FROM ' . self::MAP_TABLE)
             ->queryScalar();
@@ -156,11 +164,12 @@ class DashSync extends Component
             'watermark' => $watermark,
             'modified' => $modified,
             'remoteTotal' => $remoteTotal,
+            'knownTotal' => $knownTotal === null ? null : (int)$knownTotal,
             'mappedTotal' => $mappedTotal,
-            'countMismatch' => $remoteTotal !== $mappedTotal,
+            'countChanged' => $countChanged,
             'stale' => $stale,
             'watermarkAgeMinutes' => $ageMinutes,
-            'changed' => $watermark === null || $modified > 0 || $remoteTotal !== $mappedTotal || $stale,
+            'changed' => $watermark === null || $modified > 0 || $countChanged || $stale,
         ];
     }
 
@@ -185,6 +194,10 @@ class DashSync extends Component
             $counts = $this->reconcile();
             // Only after a clean run, so a failure retries the same window.
             $this->setState('lastSync', $timestamp);
+            // What the next probe compares against. Taken from the reconcile's own full walk
+            // rather than from the probe's count, so the two can never disagree about which
+            // library state was actually processed.
+            $this->setState('remoteTotal', (string)$counts['remoteTotal']);
 
             return $counts;
         } finally {
@@ -245,6 +258,8 @@ class DashSync extends Component
         $counts['transformed'] = $transforms['generated'];
         $counts['transformsDeferred'] = $transforms['deferred'];
         $counts['failed'] += $transforms['failed'];
+        $counts['foldersPruned'] = $this->pruneEmptyFolders($volume, $dash);
+        $counts['remoteTotal'] = count($allIds);
 
         return $counts;
     }
@@ -736,6 +751,66 @@ class DashSync extends Component
     }
 
     /**
+     * Drop volume folders that no in-scope Dash asset lives in any more.
+     *
+     * `ensureFolderByFullPathAndVolume()` only ever creates rows, and nothing in Craft
+     * removes them, so a folder renamed or emptied in Dash — or belonging to a tenant this
+     * environment used to point at — would sit in the control panel tree forever.
+     *
+     * Two guards. Ancestors of a kept folder are kept, because `volumefolders.parentId`
+     * cascades and deleting a parent would take its children with it. And a folder is only
+     * dropped when nothing at all references it, including trashed assets, because
+     * `assets.folderId` cascades too: pruning a folder that still held one would delete the
+     * asset row outright, behind Craft's element lifecycle rather than through it.
+     *
+     * @param array<string, array> $dash in-scope Dash state, keyed by Dash id
+     */
+    private function pruneEmptyFolders(Volume $volume, array $dash): int
+    {
+        $keep = [];
+
+        foreach ($dash as $state) {
+            $path = $this->folderPathOf($state['path']);
+
+            // Every prefix, so a parent is never pruned out from under its children.
+            foreach (explode('/', rtrim($path, '/')) as $segment) {
+                $prefix = ($prefix ?? '') === '' ? $segment : $prefix . '/' . $segment;
+                $keep[$prefix . '/'] = true;
+            }
+
+            unset($prefix);
+        }
+
+        $db = Craft::$app->getDb();
+        $stale = $db->createCommand(
+            'SELECT f.id, f.path FROM {{%volumefolders}} f
+             WHERE f.volumeId = :v AND f.path IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM {{%assets}} a WHERE a.folderId = f.id)',
+            [':v' => $volume->id],
+        )->queryAll();
+
+        $ids = [];
+
+        foreach ($stale as $folder) {
+            if (!isset($keep[$folder['path']])) {
+                $ids[] = (int)$folder['id'];
+                $this->log("  FOLDER   removed  {$folder['path']}");
+            }
+        }
+
+        if ($ids === []) {
+            return 0;
+        }
+
+        $db->createCommand()->delete('{{%volumefolders}}', ['id' => $ids])->execute();
+
+        // What was asked for, not what the statement reported: parentId cascades, so a child
+        // is already gone by the time its own id comes up and the affected-row count reads
+        // lower than the number of folders that actually disappeared.
+        return count($ids);
+    }
+
+    /**
      * Forget everything synced from Dash: trash the volume's assets, drop the Dash id
      * mappings, and clear the watermark so the next run starts cold.
      *
@@ -750,7 +825,7 @@ class DashSync extends Component
      * The `dash_config` table is untouched: the folder selection is configuration a person
      * chose, not state the sync derived, which is why it lives apart from both other tables.
      *
-     * @return array{trashed: int, unmapped: int, failed: int}
+     * @return array{trashed: int, unmapped: int, folders: int, failed: int}
      */
     public function reset(): array
     {
@@ -763,7 +838,7 @@ class DashSync extends Component
         $db = Craft::$app->getDb();
         $elements = Craft::$app->getElements();
         $transforms = Craft::$app->getImageTransforms();
-        $counts = ['trashed' => 0, 'unmapped' => 0, 'failed' => 0];
+        $counts = ['trashed' => 0, 'unmapped' => 0, 'folders' => 0, 'failed' => 0];
 
         foreach (array_chunk(Asset::find()->volumeId($volume->id)->status(null)->ids(), self::CHUNK_SIZE) as $ids) {
             foreach (Asset::find()->id($ids)->status(null)->all() as $asset) {
@@ -780,11 +855,45 @@ class DashSync extends Component
             }
         }
 
+        $counts['folders'] = $this->clearFolderTree($volume);
         $counts['unmapped'] = (int)$db->createCommand()->delete(self::MAP_TABLE)->execute();
         $db->createCommand()->delete(self::STATE_TABLE, ['k' => 'lastSync'])->execute();
         $this->clearCaches();
 
         return $counts;
+    }
+
+    /**
+     * Remove the volume's folder rows, so the control panel tree does not keep showing a
+     * different tenant's structure. The root folder stays — Craft requires one per volume.
+     *
+     * Trashed assets still carry the folderId they had, and `assets.folderId` cascades on
+     * delete: dropping the folders while anything still points at them would delete those
+     * asset rows outright, behind Craft's element lifecycle rather than through it. So they
+     * are re-pointed at the root first, which keeps them recoverable — restored from the
+     * trash they land in the volume root rather than in a folder that no longer exists.
+     *
+     * `volumefolders.parentId` cascades too, so children go with their parents; deleting the
+     * whole non-root set in one statement is safe either way.
+     */
+    private function clearFolderTree(Volume $volume): int
+    {
+        $db = Craft::$app->getDb();
+        $root = Craft::$app->getAssets()->getRootFolderByVolumeId((int)$volume->id);
+
+        if ($root === null) {
+            return 0;
+        }
+
+        $db->createCommand()
+            ->update('{{%assets}}', ['folderId' => $root->id], ['volumeId' => $volume->id])
+            ->execute();
+
+        return (int)$db->createCommand()->delete('{{%volumefolders}}', [
+            'and',
+            ['volumeId' => $volume->id],
+            ['not', ['id' => $root->id]],
+        ])->execute();
     }
 
     /**
