@@ -37,6 +37,30 @@ any environment using that API client. Dash does not rotate refresh tokens.
 Then create a filesystem of type **Dash**, and a volume using it with a writable
 `transformFs`.
 
+## Where configuration lives
+
+Three places, split by who owns each one:
+
+| | Where | Owner |
+|---|---|---|
+| Credentials | `.env` | developer, per environment, never committed |
+| Reconcile interval, orphan threshold, trash behaviour | **Settings → Laméco Dash** (project config) | developer, committed |
+| Which Dash folders are synced | **Utilities → Dash** (plugin table) | the client, changeable any time |
+
+The middle row is version-controlled and applied on deploy, so it must not hold secrets. The
+bottom row deliberately is not: plugin settings go to project config, and a deploy applies
+the committed YAML over whatever is there — so anything the client changes in the control
+panel has to live outside it.
+
+Settings can be overridden per environment from `config/_craft-dash.php`:
+
+```php
+return [
+    '*' => ['fullReconcileMinutes' => 30],
+    'dev' => ['trashOrphans' => false],
+];
+```
+
 ## Commands
 
 ```bash

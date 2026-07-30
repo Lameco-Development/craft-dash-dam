@@ -4,7 +4,6 @@ namespace lameco\dash\services;
 
 use Craft;
 use craft\elements\Asset;
-use craft\helpers\App;
 use craft\helpers\Assets;
 use craft\helpers\Db;
 use craft\helpers\Image;
@@ -83,8 +82,6 @@ class DashSync extends Component
      *
      * Ordinary edits (moves, title changes) do get a current stamp and are caught by the
      * timestamp probe within one cron tick.
-     *
-     * Override per environment with DASH_FULL_RECONCILE_MINUTES.
      */
     public int $fullReconcileMinutes = 30;
 
@@ -96,24 +93,27 @@ class DashSync extends Component
 
     /**
      * The share of mapped assets that may vanish from Dash in one run before the whole
-     * reconcile is refused. Override with DASH_MAX_ORPHAN_SHARE, or 1.0 to disable.
+     * reconcile is refused. 1.0 disables the check.
      */
     public float $maxOrphanShare = 0.1;
 
     /** @var callable|null called with each progress line */
     public $logger = null;
 
+    /**
+     * The declared values above are fallbacks; the settings are the source. Overriding one
+     * for a single run still works, because callers do that after the component is built —
+     * which is what the console command's --allowMassDeletion does.
+     */
     public function init(): void
     {
         parent::init();
 
-        if (($minutes = (int)App::env('DASH_FULL_RECONCILE_MINUTES')) > 0) {
-            $this->fullReconcileMinutes = $minutes;
-        }
+        $settings = Plugin::getInstance()->getSettings();
 
-        if (($share = (float)App::env('DASH_MAX_ORPHAN_SHARE')) > 0) {
-            $this->maxOrphanShare = $share;
-        }
+        $this->fullReconcileMinutes = $settings->fullReconcileMinutes;
+        $this->trashOrphans = $settings->trashOrphans;
+        $this->maxOrphanShare = $settings->maxOrphanShare;
     }
 
     /**
