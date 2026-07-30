@@ -252,10 +252,7 @@ final class CraftHarness
                 continue;
             }
 
-            $value = trim(trim($value), '"\'');
-            putenv("{$name}={$value}");
-            $_ENV[$name] = $value;
-            $_SERVER[$name] = $value;
+            self::setEnv($name, trim(trim($value), '"\''));
         }
     }
 
@@ -272,11 +269,19 @@ final class CraftHarness
 
         foreach ($defaults as $name => $value) {
             if (getenv($name) === false) {
-                putenv("{$name}={$value}");
-                $_ENV[$name] = $value;
-                $_SERVER[$name] = $value;
+                self::setEnv($name, $value);
             }
         }
+    }
+
+    /**
+     * All three channels, because Craft's App::env() reads $_SERVER before getenv().
+     */
+    private static function setEnv(string $name, string $value): void
+    {
+        putenv("{$name}={$value}");
+        $_ENV[$name] = $value;
+        $_SERVER[$name] = $value;
     }
 
     /**

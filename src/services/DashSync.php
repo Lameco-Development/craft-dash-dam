@@ -810,14 +810,16 @@ class DashSync extends Component
             $this->keepWithAncestors($keep, $this->folderPathOf($state['path']));
         }
 
-        // The root is excluded by both checks: volume roots created in the control panel
-        // carry a NULL path, while Volumes::saveVolume() writes an empty string. Missing
-        // the second case would prune the root, and the parentId/folderId cascades would
-        // take every folder row and asset row in the volume with it.
+        // The root is excluded by both halves of the predicate: volume roots created in
+        // the control panel carry a NULL path, while Volumes::saveVolume() writes an
+        // empty string. Missing the second case would prune the root, and the
+        // parentId/folderId cascades would take every folder row and asset row in the
+        // volume with it.
+        $notRoot = "f.volumeId = :v AND f.path IS NOT NULL AND f.path <> ''";
         $db = Craft::$app->getDb();
         $stale = $db->createCommand(
             "SELECT f.id, f.path FROM {{%volumefolders}} f
-             WHERE f.volumeId = :v AND f.path IS NOT NULL AND f.path <> ''
+             WHERE {$notRoot}
                AND NOT EXISTS (SELECT 1 FROM {{%assets}} a WHERE a.folderId = f.id)",
             [':v' => $volume->id],
         )->queryAll();
@@ -829,7 +831,7 @@ class DashSync extends Component
         $occupied = $db->createCommand(
             "SELECT DISTINCT f.path FROM {{%volumefolders}} f
              JOIN {{%assets}} a ON a.folderId = f.id
-             WHERE f.volumeId = :v AND f.path IS NOT NULL AND f.path <> ''",
+             WHERE {$notRoot}",
             [':v' => $volume->id],
         )->queryColumn();
 

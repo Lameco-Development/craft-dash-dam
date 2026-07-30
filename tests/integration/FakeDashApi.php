@@ -43,7 +43,6 @@ final class FakeDashApi extends DashApi
         return $api;
     }
 
-    // --- The transport seam ---------------------------------------------------------
 
     public function get(string $path): array
     {
@@ -72,7 +71,6 @@ final class FakeDashApi extends DashApi
         return "fake-bytes-for-{$url}";
     }
 
-    // --- Tenant mutation, the way a Dash user would ---------------------------------
 
     public function remove(string $dashId): void
     {
@@ -137,7 +135,6 @@ final class FakeDashApi extends DashApi
         ));
     }
 
-    // --- Fake server internals ------------------------------------------------------
 
     /**
      * @param array<string, mixed> $payload
