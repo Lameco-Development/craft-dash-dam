@@ -106,6 +106,9 @@ class DashSync extends Component
     /** @var callable|null called with each progress line */
     public $logger = null;
 
+    /** @var array<int, string|null>|null assetId => Dash preview URL, loaded once per request */
+    private ?array $previewUrls = null;
+
     /**
      * The declared values above are fallbacks; the settings are the source. Overriding one
      * for a single run still works, because callers do that after the component is built —
@@ -350,6 +353,12 @@ class DashSync extends Component
                 'title' => $titleFieldId !== null ? ($asset['metadata']['values'][$titleFieldId][0] ?? null) : null,
                 'alt' => $altFieldId !== null ? ($asset['metadata']['values'][$altFieldId][0] ?? null) : null,
                 'checksum' => $file['checksum'] ?? null,
+                // Kept so the control panel can render a thumbnail without Craft generating
+                // one from the original. CloudFront-signed and expiring, so it must never
+                // reach rendered site HTML — Blitz caches statically and the URL would rot
+                // mid-cache-lifetime. Control panel pages are per-request, which is the one
+                // place it is safe.
+                'previewUrl' => $file['previewUrl'] ?? null,
                 // Carried so elements can be created without Craft probing the file —
                 // this is what keeps a cold sync from downloading the entire library.
                 'size' => (int)($file['size'] ?? 0),
@@ -509,9 +518,14 @@ class DashSync extends Component
                     $counts['restamped']++;
                 }
 
-                if ($checksum !== ($knownChecksum[$assetId] ?? null)) {
-                    $db->createCommand()->update(self::MAP_TABLE, ['checksum' => $checksum], ['assetId' => $assetId])->execute();
-                }
+                // The preview URL is re-signed by Dash on every search, so it is refreshed
+                // here rather than compared — the stored one is what the control panel reads,
+                // and letting it expire would leave every thumbnail broken.
+                $db->createCommand()->update(
+                    self::MAP_TABLE,
+                    ['checksum' => $checksum, 'previewUrl' => $state['previewUrl']],
+                    ['assetId' => $assetId],
+                )->execute();
 
                 if (!$pathChanged && !$titleChanged && !$altChanged && !$sizeChanged && !$dimsChanged) {
                     continue;
@@ -717,6 +731,7 @@ class DashSync extends Component
                 'assetId' => $asset->id,
                 'dashId' => $dashId,
                 'checksum' => $state['checksum'],
+                'previewUrl' => $state['previewUrl'],
             ])->execute();
 
             $this->log("  CREATED  #{$asset->id}  {$state['path']}"
@@ -945,6 +960,28 @@ class DashSync extends Component
         )->queryAll();
 
         return array_column($rows, 'uses', 'targetId');
+    }
+
+    /**
+     * The Dash preview URL for an asset, or null if it is not a Dash asset.
+     *
+     * Loaded for the whole volume in one query and held for the request: the control panel
+     * asks per asset, and a folder of 225 would otherwise be 225 queries.
+     */
+    public function previewUrl(int $assetId): ?string
+    {
+        if ($this->previewUrls === null) {
+            $rows = Craft::$app->getDb()
+                ->createCommand('SELECT assetId, previewUrl FROM ' . self::MAP_TABLE)
+                ->queryAll();
+
+            $this->previewUrls = array_map(
+                static fn($url) => $url === '' ? null : $url,
+                array_column($rows, 'previewUrl', 'assetId'),
+            );
+        }
+
+        return $this->previewUrls[$assetId] ?? null;
     }
 
     public function missingCount(): int

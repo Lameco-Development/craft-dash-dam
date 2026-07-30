@@ -6,7 +6,9 @@ use Craft;
 use craft\base\Event;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
+use craft\events\DefineAssetThumbUrlEvent;
 use craft\events\RegisterComponentTypesEvent;
+use craft\services\Assets;
 use craft\services\Fs;
 use craft\services\Utilities;
 use lameco\dash\console\controllers\DashController;
@@ -57,6 +59,26 @@ class Plugin extends BasePlugin
 
         Event::on(Utilities::class, Utilities::EVENT_REGISTER_UTILITIES, static function(RegisterComponentTypesEvent $event) {
             $event->types[] = DashUtility::class;
+        });
+
+        // Craft builds an asset thumbnail by generating a 200×200 crop, which needs the
+        // source file — measured at 9.5 MB pulled from Dash for one thumbnail. Opening a
+        // folder of 225 assets would transfer over 2 GB and spend four times a month's
+        // download allowance on one page view, which is why the assets index timed out.
+        //
+        // Dash's own preview URL costs nothing here: the browser fetches it from CloudFront
+        // directly. It is signed and expiring, so it must never reach rendered site HTML that
+        // Blitz will cache — a control panel thumbnail is the one place that is safe.
+        Event::on(Assets::class, Assets::EVENT_DEFINE_THUMB_URL, static function(DefineAssetThumbUrlEvent $event) {
+            if ($event->asset->getVolume()->handle !== DashSync::VOLUME_HANDLE) {
+                return;
+            }
+
+            $url = Plugin::getInstance()->getDashSync()->previewUrl((int)$event->asset->id);
+
+            if ($url !== null) {
+                $event->url = $url;
+            }
         });
 
         // The handle is `_craft-dash`, so the route Craft resolves on its own would be
