@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  ecs:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: bcmath, curl, dom, intl, mbstring, openssl, pdo, zip
+      # Resolve dependencies for this job's PHP, not the local platform pin.
+      - run: composer config --unset platform.php
+      - run: composer install --no-interaction --no-progress
+      - run: composer check-cs
+
+  phpstan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: bcmath, curl, dom, intl, mbstring, openssl, pdo, zip
+      # Resolve dependencies for this job's PHP, not the local platform pin.
+      - run: composer config --unset platform.php
+      - run: composer install --no-interaction --no-progress
+      - run: composer phpstan
+
+  tests:
+    # Placeholder until the test suite lands (issue #6): flip the gate by
+    # setting the ENABLE_TESTS repo variable to 'true', replace the last step.
+    if: ${{ vars.ENABLE_TESTS == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath, curl, dom, intl, mbstring, openssl, pdo, zip
+      - run: composer config --unset platform.php
+      - run: composer install --no-interaction --no-progress
+      - run: 'echo "No test suite yet - see issue #6." && exit 1'
