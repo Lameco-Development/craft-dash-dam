@@ -130,3 +130,16 @@ built from API data instead.
 
 So `DashSync` owns create, move, retitle, alt, transform invalidation and deletion
 detection, reconciling on the Dash asset UUID rather than on path.
+
+## Tests
+
+```bash
+composer test                          # whole suite
+vendor/bin/phpunit --testsuite unit    # pure logic only, no database needed
+```
+
+The integration suite boots a real Craft app against a disposable MySQL database and runs
+the full reconcile lifecycle with only the Dash API faked. Copy `tests/.env.example` to
+`tests/.env` and create the database it names — the harness drops every table in it on
+each run, so the name must contain `test`. See `docs/adr/0001` for how the harness works
+and why it is plain PHPUnit.
