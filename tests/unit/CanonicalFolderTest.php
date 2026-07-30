@@ -46,6 +46,30 @@ final class CanonicalFolderTest extends TestCase
         );
     }
 
+    public function testSingleOutOfScopeFolderIsStillPickedOverUnfiled(): void
+    {
+        self::assertSame(
+            'Archief/Oud',
+            CanonicalFolder::pick(['Archief/Oud'], static fn(): bool => false),
+        );
+    }
+
+    public function testParentSortsBeforeItsOwnChild(): void
+    {
+        self::assertSame(
+            'Beeldbank',
+            CanonicalFolder::pick(['Beeldbank/Zorg', 'Beeldbank'], static fn(): bool => true),
+        );
+    }
+
+    public function testTiebreakIsByteOrderSoUppercaseSortsBeforeLowercase(): void
+    {
+        self::assertSame(
+            'Zorg',
+            CanonicalFolder::pick(['archief', 'Zorg'], static fn(): bool => true),
+        );
+    }
+
     public function testStableUnderCandidateReordering(): void
     {
         $candidates = ['Corporate/Foto', 'Beeldbank/Zorg', 'Archief/2020'];
