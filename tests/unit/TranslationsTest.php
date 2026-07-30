@@ -9,8 +9,8 @@ use RecursiveIteratorIterator;
 use SplFileInfo;
 
 /**
- * Every user-facing string must have a Dutch entry in src/translations/nl/dash-dam.php.
- * English needs no file: the source strings are the English translation.
+ * English ships no translation file — the source strings are the English translation —
+ * so only the nl file needs coverage.
  */
 final class TranslationsTest extends TestCase
 {
@@ -40,6 +40,15 @@ final class TranslationsTest extends TestCase
         }
     }
 
+    public function testDutchFileIsAlphabetical(): void
+    {
+        $keys = array_keys(self::dutchEntries());
+        $sorted = $keys;
+        sort($sorted, SORT_STRING);
+
+        self::assertSame($sorted, $keys);
+    }
+
     /**
      * @return string[]
      */
@@ -48,14 +57,14 @@ final class TranslationsTest extends TestCase
         $strings = [];
 
         foreach (self::sourceFiles() as $file) {
-            $pattern = $file->getExtension() === 'twig'
-                ? '~\'((?:[^\'\\\\]|\\\\.)*)\'\s*\|\s*t\(\s*\'dash-dam\'~'
-                : '~Craft::t\(\s*\'dash-dam\',\s*\'((?:[^\'\\\\]|\\\\.)*)\'~';
+            $contents = (string)file_get_contents($file->getPathname());
 
-            preg_match_all($pattern, (string)file_get_contents($file->getPathname()), $matches);
+            foreach (self::patterns($file->getExtension()) as $quote => $pattern) {
+                preg_match_all($pattern, $contents, $matches);
 
-            foreach ($matches[1] as $raw) {
-                $strings[] = str_replace(["\\'", '\\\\'], ["'", '\\'], $raw);
+                foreach ($matches[1] as $raw) {
+                    $strings[] = str_replace(['\\' . $quote, '\\\\'], [$quote, '\\'], $raw);
+                }
             }
         }
 
@@ -63,12 +72,38 @@ final class TranslationsTest extends TestCase
     }
 
     /**
+     * Patterns keyed by the quote style they capture. Both styles are matched so a
+     * double-quoted source string cannot silently escape the coverage check; strings
+     * built by concatenation or heredoc still can, so user-facing strings must stay
+     * plain quoted literals.
+     *
+     * @return array<string, string>
+     */
+    private static function patterns(string $extension): array
+    {
+        $single = '\'((?:[^\'\\\\]|\\\\.)*)\'';
+        $double = '"((?:[^"\\\\]|\\\\.)*)"';
+        $category = '[\'"]dash-dam[\'"]';
+
+        if ($extension === 'twig') {
+            return [
+                "'" => '~' . $single . '\s*\|\s*t\(\s*' . $category . '~',
+                '"' => '~' . $double . '\s*\|\s*t\(\s*' . $category . '~',
+            ];
+        }
+
+        return [
+            "'" => '~Craft::t\(\s*' . $category . ',\s*' . $single . '~',
+            '"' => '~Craft::t\(\s*' . $category . ',\s*' . $double . '~',
+        ];
+    }
+
+    /**
      * @return iterable<SplFileInfo>
      */
     private static function sourceFiles(): iterable
     {
-        $src = dirname(__DIR__, 2) . '/src';
-        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($src, FilesystemIterator::SKIP_DOTS));
+        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(self::srcDir(), FilesystemIterator::SKIP_DOTS));
 
         /** @var SplFileInfo $file */
         foreach ($files as $file) {
@@ -87,7 +122,7 @@ final class TranslationsTest extends TestCase
      */
     private static function dutchEntries(): array
     {
-        $file = dirname(__DIR__, 2) . '/src/translations/nl/dash-dam.php';
+        $file = self::srcDir() . '/translations/nl/dash-dam.php';
 
         self::assertFileExists($file);
 
@@ -96,5 +131,10 @@ final class TranslationsTest extends TestCase
         self::assertIsArray($entries);
 
         return $entries;
+    }
+
+    private static function srcDir(): string
+    {
+        return dirname(__DIR__, 2) . '/src';
     }
 }
