@@ -3,6 +3,7 @@
 namespace lameco\dash\services;
 
 use Craft;
+use lameco\dash\fs\DashFs;
 use lameco\dash\Plugin;
 use Throwable;
 use yii\base\Component;
@@ -26,6 +27,14 @@ class DashConfig extends Component
     private const FOLDER_CACHE_DURATION = 300;
 
     /**
+     * Memoised per request: includesFolder() runs once per folder candidate during a
+     * reconcile or filesystem index, and each miss would be a query.
+     *
+     * @var string[]|null
+     */
+    private ?array $syncFolders = null;
+
+    /**
      * Which Dash folders are synced, as full paths. An empty array means every folder —
      * the default, so an install that never opens the form behaves as it always did.
      *
@@ -33,15 +42,19 @@ class DashConfig extends Component
      */
     public function syncFolders(): array
     {
+        if ($this->syncFolders !== null) {
+            return $this->syncFolders;
+        }
+
         $raw = $this->get(self::SYNC_FOLDERS_KEY);
 
         if ($raw === null || $raw === '') {
-            return [];
+            return $this->syncFolders = [];
         }
 
         $decoded = json_decode($raw, true);
 
-        return is_array($decoded) ? array_values(array_filter($decoded, 'is_string')) : [];
+        return $this->syncFolders = is_array($decoded) ? array_values(array_filter($decoded, 'is_string')) : [];
     }
 
     /**
@@ -52,7 +65,13 @@ class DashConfig extends Component
         $paths = array_values(array_unique(array_filter(array_map('strval', $paths), static fn(string $p) => $p !== '')));
 
         $this->set(self::SYNC_FOLDERS_KEY, json_encode($paths));
+        $this->syncFolders = null;
         $this->clearFolderCache();
+
+        // The cached filesystem listing bakes the selection into every path — in-scope
+        // folders win the canonicalisation — so it must not outlive a selection change,
+        // or DashFs and DashSync disagree on paths until the TTL runs out.
+        DashFs::clearCache();
     }
 
     public function clearFolderCache(): void

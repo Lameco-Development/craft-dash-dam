@@ -19,6 +19,7 @@ use craft\base\Fs;
 use craft\errors\FsException;
 use craft\models\FsListing;
 use Generator;
+use lameco\dash\helpers\CanonicalFolder;
 use lameco\dash\Plugin;
 use lameco\dash\services\DashApi;
 
@@ -26,13 +27,6 @@ class DashFs extends Fs
 {
     private const CACHE_KEY = 'dashFs.listing';
     private const CACHE_TTL = 300;
-
-    /**
-     * Craft's AssetIndexer throws AssetNotIndexableException for any path segment
-     * beginning with an underscore, so the synthetic bucket for assets that live in
-     * no Dash folder cannot be named "_unfiled".
-     */
-    private const UNFILED = 'Unfiled';
 
     /** @var array{files: array<string, array>, folders: array<string, true>}|null */
     private ?array $index = null;
@@ -103,6 +97,7 @@ class DashFs extends Fs
         }
 
         $api = $this->api();
+        $config = Plugin::getInstance()->getDashConfig();
         $folderFieldId = $api->folderFieldId();
         $folderPaths = $api->folderPaths($folderFieldId);
 
@@ -117,7 +112,7 @@ class DashFs extends Fs
             }
         }
 
-        $folders[self::UNFILED] = true;
+        $folders[CanonicalFolder::UNFILED] = true;
 
         foreach ($api->allAssets() as $asset) {
             $file = $asset['currentAssetFile'] ?? null;
@@ -132,9 +127,7 @@ class DashFs extends Fs
                 $assigned,
             )));
 
-            // Craft allows an asset exactly one folder; Dash allows many. Taking the
-            // first is a placeholder for the canonicalisation rule ticket 10 owns.
-            $dirname = $candidates[0] ?? self::UNFILED;
+            $dirname = CanonicalFolder::pick($candidates, $config->includesFolder(...));
 
             if (count($candidates) > 1) {
                 Craft::warning(sprintf(
