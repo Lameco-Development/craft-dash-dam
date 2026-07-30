@@ -2,3 +2,7 @@
 composer.lock
 .phpunit.result.cache
 .DS_Store
+/tests/.env
+/tests/_craft/storage
+/tests/_craft/templates
+/tests/_craft/config/license.key

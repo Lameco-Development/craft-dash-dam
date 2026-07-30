@@ -1,0 +1,128 @@
+{
+    "fields": [
+        {"id": "f-titel", "name": "Titel"},
+        {"id": "f-alt", "name": "ALT-tekst"},
+        {"id": "f-folders", "name": "Folders"}
+    ],
+    "folderOptions": [
+        {"id": "opt-beeldbank", "value": "Beeldbank", "parent": null},
+        {"id": "opt-zorg", "value": "Zorg", "parent": "opt-beeldbank"},
+        {"id": "opt-corporate", "value": "Corporate", "parent": null},
+        {"id": "opt-archief", "value": "Archief", "parent": null},
+        {"id": "opt-oud", "value": "Oud", "parent": "opt-archief"}
+    ],
+    "assets": [
+        {
+            "id": "aaaa1111-0000-4000-8000-000000000001",
+            "dateLastModified": "2026-07-01T09:00:00Z",
+            "currentAssetFile": {
+                "filename": "foto-zorg.jpg",
+                "fileType": "IMAGE",
+                "checksum": "checksum-foto-zorg-v1",
+                "size": 123456,
+                "previewUrl": "https://fake.dash/preview/aaaa1111",
+                "dimensions": {"width": 1200, "height": 800},
+                "dateAdded": "2026-06-01T08:00:00Z"
+            },
+            "metadata": {"values": {"f-folders": ["opt-zorg"], "f-titel": ["Zorgfoto"]}}
+        },
+        {
+            "id": "bbbb2222-0000-4000-8000-000000000002",
+            "dateLastModified": "2026-07-01T09:05:00Z",
+            "currentAssetFile": {
+                "filename": "logo.png",
+                "fileType": "IMAGE",
+                "checksum": "checksum-logo-v1",
+                "size": 4321,
+                "previewUrl": "https://fake.dash/preview/bbbb2222",
+                "dimensions": {"width": 400, "height": 400},
+                "dateAdded": "2026-06-01T08:05:00Z"
+            },
+            "metadata": {"values": {"f-folders": ["opt-corporate"], "f-titel": ["Logo"], "f-alt": ["Het logo"]}}
+        },
+        {
+            "id": "cccc3333-0000-4000-8000-000000000003",
+            "dateLastModified": "2026-07-01T09:10:00Z",
+            "currentAssetFile": {
+                "filename": "clip.mp4",
+                "fileType": "VIDEO",
+                "checksum": "checksum-clip-v1",
+                "size": 987654,
+                "previewUrl": "https://fake.dash/preview/cccc3333",
+                "dimensions": {"width": 1920, "height": 1080},
+                "dateAdded": "2026-06-01T08:10:00Z"
+            },
+            "metadata": {"values": {"f-folders": ["opt-zorg"], "f-titel": ["Clip"]}}
+        },
+        {
+            "id": "dddd4444-0000-4000-8000-000000000004",
+            "dateLastModified": "2026-07-01T09:15:00Z",
+            "currentAssetFile": {
+                "filename": "beleid.pdf",
+                "fileType": "DOCUMENT",
+                "checksum": "checksum-beleid-v1",
+                "size": 55555,
+                "previewUrl": "https://fake.dash/preview/dddd4444",
+                "dimensions": null,
+                "dateAdded": "2026-06-01T08:15:00Z"
+            },
+            "metadata": {"values": {"f-folders": ["opt-corporate"], "f-titel": ["Beleid"]}}
+        },
+        {
+            "id": "eeee5555-0000-4000-8000-000000000005",
+            "dateLastModified": "2026-07-01T09:20:00Z",
+            "currentAssetFile": {
+                "filename": "zwerver.jpg",
+                "fileType": "IMAGE",
+                "checksum": "checksum-zwerver-v1",
+                "size": 22222,
+                "previewUrl": "https://fake.dash/preview/eeee5555",
+                "dimensions": {"width": 640, "height": 480},
+                "dateAdded": "2026-06-01T08:20:00Z"
+            },
+            "metadata": {"values": {"f-titel": ["Zwerver"]}}
+        },
+        {
+            "id": "ffff6666-0000-4000-8000-000000000006",
+            "dateLastModified": "2026-07-01T09:25:00Z",
+            "currentAssetFile": {
+                "filename": "duo.jpg",
+                "fileType": "IMAGE",
+                "checksum": "checksum-duo-v1",
+                "size": 33333,
+                "previewUrl": "https://fake.dash/preview/ffff6666",
+                "dimensions": {"width": 800, "height": 600},
+                "dateAdded": "2026-06-01T08:25:00Z"
+            },
+            "metadata": {"values": {"f-folders": ["opt-oud", "opt-zorg"], "f-titel": ["Duo"]}}
+        },
+        {
+            "id": "abab7777-0000-4000-8000-000000000007",
+            "dateLastModified": "2026-07-01T09:30:00Z",
+            "currentAssetFile": {
+                "filename": "foto-zorg.jpg",
+                "fileType": "IMAGE",
+                "checksum": "checksum-foto-zorg-kopie-v1",
+                "size": 111111,
+                "previewUrl": "https://fake.dash/preview/abab7777",
+                "dimensions": {"width": 1000, "height": 700},
+                "dateAdded": "2026-06-01T08:30:00Z"
+            },
+            "metadata": {"values": {"f-folders": ["opt-zorg"], "f-titel": ["Zorgfoto kopie"]}}
+        },
+        {
+            "id": "cdcd8888-0000-4000-8000-000000000008",
+            "dateLastModified": "2026-07-01T09:35:00Z",
+            "currentAssetFile": {
+                "filename": "oud.jpg",
+                "fileType": "IMAGE",
+                "checksum": "checksum-oud-v1",
+                "size": 44444,
+                "previewUrl": "https://fake.dash/preview/cdcd8888",
+                "dimensions": {"width": 500, "height": 350},
+                "dateAdded": "2026-06-01T08:35:00Z"
+            },
+            "metadata": {"values": {"f-folders": ["opt-oud"], "f-titel": ["Oude foto"]}}
+        }
+    ]
+}
