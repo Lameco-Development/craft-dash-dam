@@ -42,6 +42,15 @@ class DashFs extends Fs
         return 'Dash';
     }
 
+    /**
+     * Drop the cached listing. Needed after anything that makes it describe a library this
+     * environment no longer talks to — pointing at a different Dash tenant, most obviously.
+     */
+    public static function clearCache(): void
+    {
+        Craft::$app->getCache()->delete(self::CACHE_KEY);
+    }
+
     public function getShowHasUrlSetting(): bool
     {
         // Public URLs would come from Dash embeddable links, which are not yet

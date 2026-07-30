@@ -68,7 +68,27 @@ php craft dash/sync            # probe, and reconcile only if something changed
 php craft dash/sync --force    # reconcile regardless
 php craft dash/probe           # report only, change nothing
 php craft dash/auth            # one-time, interactive: get a refresh token
+php craft dash/reset           # forget everything synced, to point at another tenant
 ```
+
+## Pointing an environment at a different tenant
+
+The mapping table is keyed on Dash asset UUIDs, so swapping the credentials makes every
+mapped asset stop coming back from the search at once. That is indistinguishable from a bulk
+deletion, and the reconcile refuses outright rather than trashing the library. `dash/reset`
+is how you clear that state deliberately:
+
+```bash
+php craft dash/reset
+```
+
+It trashes the volume's assets, drops the mappings and clears the watermark — but keeps the
+folder selection, which is configuration rather than synced state. Assets are trashed, not
+erased, so a reset against the wrong environment is recoverable. It lists anything still in
+use before asking, and refuses to run non-interactively unless given `--force`.
+
+Do **not** use `sync --allowMassDeletion` for this. That flag is for a deletion that genuinely
+happened in Dash; against a tenant switch it would trash the assets rather than forget them.
 
 `sync` is the cron entry point, and the only one the integration needs:
 

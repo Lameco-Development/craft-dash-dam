@@ -52,6 +52,11 @@ class DashConfig extends Component
         $paths = array_values(array_unique(array_filter(array_map('strval', $paths), static fn(string $p) => $p !== '')));
 
         $this->set(self::SYNC_FOLDERS_KEY, json_encode($paths));
+        $this->clearFolderCache();
+    }
+
+    public function clearFolderCache(): void
+    {
         Craft::$app->getCache()->delete(self::FOLDER_CACHE_KEY);
     }
 

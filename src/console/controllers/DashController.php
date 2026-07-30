@@ -4,6 +4,7 @@ namespace lameco\dash\console\controllers;
 
 use Craft;
 use craft\console\Controller;
+use craft\elements\Asset;
 use craft\helpers\Console;
 use lameco\dash\errors\DashApiException;
 use lameco\dash\Plugin;
@@ -18,6 +19,7 @@ use yii\console\ExitCode;
  *     php craft dash/sync --force    # reconcile regardless
  *     php craft dash/probe           # report only, change nothing
  *     php craft dash/auth            # one-time, interactive: get a refresh token
+ *     php craft dash/reset           # forget everything synced, to point at another tenant
  *
  * Dash has no webhooks, so change detection is polling — but a count-only search is 49
  * bytes regardless of library size, which makes running this every few minutes from cron
@@ -36,7 +38,10 @@ class DashController extends Controller
     /** A previous run is still going. Benign for cron, but worth telling apart. */
     private const EXIT_LOCKED = 4;
 
-    /** @var bool reconcile even when the probe reports no changes */
+    /**
+     * @var bool for `sync`, reconcile even when the probe reports no changes; for `reset`,
+     *           skip the confirmation prompt
+     */
     public bool $force = false;
 
     /** @var bool proceed even when most mapped assets have vanished from Dash */
@@ -46,7 +51,105 @@ class DashController extends Controller
 
     public function options($actionID): array
     {
-        return array_merge(parent::options($actionID), $actionID === 'sync' ? ['force', 'allowMassDeletion'] : []);
+        return array_merge(parent::options($actionID), match ($actionID) {
+            'sync' => ['force', 'allowMassDeletion'],
+            'reset' => ['force'],
+            default => [],
+        });
+    }
+
+    /**
+     * Forgets everything synced from Dash, so this environment can be pointed at a different
+     * tenant.
+     *
+     * Needed because the mapping table is keyed on Dash asset UUIDs. Swap the credentials
+     * without clearing it and every mapped asset stops coming back from the search at once,
+     * which is indistinguishable from a bulk deletion — refuseMassDisappearance() then
+     * refuses to reconcile, correctly, and the sync never runs again until this is done.
+     *
+     * Do not reach for `sync --allowMassDeletion` instead. That flag is for a deletion that
+     * genuinely happened in Dash; against a tenant switch it would trash the assets rather
+     * than forget them.
+     *
+     * The folder selection is deliberately left alone — it is configuration, not synced
+     * state, and it lives in its own table for exactly this reason.
+     */
+    public function actionReset(): int
+    {
+        try {
+            $sync = $this->sync();
+            $volume = Craft::$app->getVolumes()->getVolumeByHandle(DashSync::VOLUME_HANDLE);
+
+            if ($volume === null) {
+                $this->stderr("No volume with handle '" . DashSync::VOLUME_HANDLE . "'.\n", Console::FG_RED);
+
+                return ExitCode::UNSPECIFIED_ERROR;
+            }
+
+            $assetIds = Asset::find()->volumeId($volume->id)->status(null)->ids();
+            $uses = $sync->usageCounts($assetIds);
+            $mapped = (int)Craft::$app->getDb()
+                ->createCommand('SELECT COUNT(*) FROM {{%dash_asset_map}}')->queryScalar();
+
+            $this->stdout("\nThis will forget everything synced from Dash on this environment:\n\n");
+            $this->stdout('  ' . count($assetIds) . " asset(s) in the '" . DashSync::VOLUME_HANDLE . "' volume → trash\n");
+            $this->stdout("  {$mapped} Dash id mapping(s) → deleted\n");
+            $this->stdout("  the sync watermark → cleared\n");
+            $this->stdout("  the folder selection → kept\n");
+
+            if ($uses !== []) {
+                $this->stdout("\n");
+                $this->stdout(count($uses) . " of those assets are still used by other elements:\n", Console::FG_YELLOW);
+
+                foreach ($uses as $assetId => $count) {
+                    $asset = Craft::$app->getElements()->getElementById((int)$assetId, Asset::class);
+                    $this->stdout(sprintf(
+                        "  #%s  %s  — used by %d element(s)\n",
+                        $assetId,
+                        $asset !== null ? $asset->getPath() : '(not loadable)',
+                        $count,
+                    ), Console::FG_YELLOW);
+                }
+
+                $this->stdout("Whatever references them will render without an image until something else is picked.\n", Console::FG_YELLOW);
+            }
+
+            // Trashed rather than hard-deleted, so a reset against the wrong environment is
+            // recoverable. Craft's garbage collection clears them out later.
+            $this->stdout("\nAssets are moved to the trash, not erased.\n");
+
+            if (!$this->force) {
+                if (!$this->interactive) {
+                    $this->stderr("\nRefusing to reset non-interactively. Re-run with --force if this is scripted.\n", Console::FG_RED);
+
+                    return ExitCode::UNSPECIFIED_ERROR;
+                }
+
+                if (!$this->confirm("\nGo ahead?")) {
+                    $this->stdout("Nothing was changed.\n");
+
+                    return ExitCode::OK;
+                }
+            }
+
+            $counts = $sync->reset();
+
+            $this->stdout(sprintf(
+                "\n%d asset(s) trashed, %d mapping(s) removed, watermark cleared.\n",
+                $counts['trashed'],
+                $counts['unmapped'],
+            ), Console::FG_GREEN);
+
+            if ($counts['failed'] > 0) {
+                $this->stderr("{$counts['failed']} asset(s) could not be trashed — see the logs.\n", Console::FG_RED);
+            }
+
+            $this->stdout("\nPoint .env at the new tenant, then run `php craft dash/probe`.\n");
+        } catch (Throwable $e) {
+            return $this->fail($e, 'Reset failed.');
+        }
+
+        return ExitCode::OK;
     }
 
     /**

@@ -32,9 +32,15 @@ class DashSync extends Component
 {
     public const VOLUME_HANDLE = 'dash';
 
-    /** @see migrations/m260729_215739_create_dash_tables.php */
     private const MAP_TABLE = '{{%dash_asset_map}}';
     private const STATE_TABLE = '{{%dash_sync_state}}';
+
+    /**
+     * Cache key for the control panel badge. Owned here rather than by the utility that
+     * renders it, because what it caches is missingCount() — so anything that changes that
+     * number can invalidate it without reaching into another class's constants.
+     */
+    public const BADGE_CACHE_KEY = 'dash.missingCount';
 
     private const UNFILED = 'Unfiled';
     private const MUTEX_NAME = 'lameco:dashSync';
@@ -727,6 +733,70 @@ class DashSync extends Component
     private function folderPathOf(string $path): string
     {
         return dirname($path) === '.' ? '' : dirname($path) . '/';
+    }
+
+    /**
+     * Forget everything synced from Dash: trash the volume's assets, drop the Dash id
+     * mappings, and clear the watermark so the next run starts cold.
+     *
+     * Both halves are required. Dropping only the mappings would leave the assets behind as
+     * unmapped strays that adoptUnmapped() then tries to match against a library they never
+     * came from; trashing only the assets would leave mapping rows pointing at nothing.
+     *
+     * Assets are trashed rather than erased, so running this against the wrong environment is
+     * recoverable. Transform records go with them — the derivative *files* are left on disk,
+     * which is a pre-existing gap rather than one this introduces.
+     *
+     * The `dash_config` table is untouched: the folder selection is configuration a person
+     * chose, not state the sync derived, which is why it lives apart from both other tables.
+     *
+     * @return array{trashed: int, unmapped: int, failed: int}
+     */
+    public function reset(): array
+    {
+        $volume = Craft::$app->getVolumes()->getVolumeByHandle(self::VOLUME_HANDLE);
+
+        if ($volume === null) {
+            throw new DashApiException("No volume with handle '" . self::VOLUME_HANDLE . "'.");
+        }
+
+        $db = Craft::$app->getDb();
+        $elements = Craft::$app->getElements();
+        $transforms = Craft::$app->getImageTransforms();
+        $counts = ['trashed' => 0, 'unmapped' => 0, 'failed' => 0];
+
+        foreach (array_chunk(Asset::find()->volumeId($volume->id)->status(null)->ids(), self::CHUNK_SIZE) as $ids) {
+            foreach (Asset::find()->id($ids)->status(null)->all() as $asset) {
+                $transforms->deleteAllTransformData($asset);
+
+                if (!$elements->deleteElement($asset)) {
+                    $this->log("  FAILED   #{$asset->id}  could not trash");
+                    $counts['failed']++;
+                    continue;
+                }
+
+                $this->log("  TRASHED  #{$asset->id}  {$asset->getPath()}");
+                $counts['trashed']++;
+            }
+        }
+
+        $counts['unmapped'] = (int)$db->createCommand()->delete(self::MAP_TABLE)->execute();
+        $db->createCommand()->delete(self::STATE_TABLE, ['k' => 'lastSync'])->execute();
+        $this->clearCaches();
+
+        return $counts;
+    }
+
+    /**
+     * Drop everything cached about the current tenant — the filesystem listing, the folder
+     * list behind the selection form, and the control panel's badge count. Left alone they
+     * would keep describing a library this environment no longer talks to.
+     */
+    public function clearCaches(): void
+    {
+        DashFs::clearCache();
+        $this->config()->clearFolderCache();
+        Craft::$app->getCache()->delete(self::BADGE_CACHE_KEY);
     }
 
     /**

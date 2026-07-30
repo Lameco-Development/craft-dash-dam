@@ -6,6 +6,7 @@ use Craft;
 use craft\base\Utility;
 use craft\elements\Asset;
 use lameco\dash\Plugin;
+use lameco\dash\services\DashSync;
 
 /**
  * Reports assets that were deleted in Dash but are still referenced in Craft.
@@ -18,8 +19,6 @@ class DashUtility extends Utility
 {
     /** Long enough that a control-panel page load never pays for this twice. */
     private const BADGE_CACHE_DURATION = 60;
-
-    private const BADGE_CACHE_KEY = 'dash.missingCount';
 
     public static function id(): string
     {
@@ -43,7 +42,7 @@ class DashUtility extends Utility
     public static function badgeCount(): int
     {
         return Craft::$app->getCache()->getOrSet(
-            self::BADGE_CACHE_KEY,
+            DashSync::BADGE_CACHE_KEY,
             static fn() => Plugin::getInstance()->getDashSync()->missingCount(),
             self::BADGE_CACHE_DURATION,
         );
