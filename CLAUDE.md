@@ -9,6 +9,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - CI (`.github/workflows/ci.yml`) runs ECS and PHPStan on PHP 8.2 and 8.4, on PRs and pushes to `main`. The `tests` job runs `composer test` (PHPUnit, unit only) but stays gated behind the `ENABLE_TESTS` repo variable until the full suite lands (issue #6).
 - Branch protection on `main` stays off until the cut-over (issue #10): pre-cut-over syncs arrive as direct `git subtree split` pushes, which protection would block. Enable it (require PRs + green CI) as part of the cut-over.
 
+## Translations
+
+Source strings are the English translation; `src/translations/nl/dash-dam.php` ships the Dutch ones. Every new or changed user-facing string — `Craft::t('dash-dam', …)` in PHP or `|t('dash-dam')` in Twig — gets its `nl` entry in the same PR. `tests/unit/TranslationsTest.php` enforces this: it fails on a missing or stale entry. Keep the file alphabetical by source string, and match Craft's own `nl` vocabulary for shared CP terms (asset → bestand, save → bewaren, utilities → hulpprogramma's).
+
 ## Agent skills
 
 ### Issue tracker
