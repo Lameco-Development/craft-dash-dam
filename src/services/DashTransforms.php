@@ -41,6 +41,17 @@ class DashTransforms extends Component
     public $logger = null;
 
     /**
+     * The declared value above is a fallback; the settings are the source. Overriding it
+     * for a single run still works, because callers do that after the component is built.
+     */
+    public function init(): void
+    {
+        parent::init();
+
+        $this->maxAssetsPerRun = Plugin::getInstance()->getSettings()->maxAssetsPerRun;
+    }
+
+    /**
      * Generate every named transform for each referenced Dash asset that is missing them.
      *
      * Batched per asset rather than per transform: getLocalImageSource() only downloads when

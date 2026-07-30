@@ -7,6 +7,7 @@ use craft\helpers\App;
 use Generator;
 use GuzzleHttp\Client;
 use lameco\dash\errors\DashApiException;
+use lameco\dash\Plugin;
 use yii\base\Component;
 
 /**
@@ -27,16 +28,6 @@ class DashApi extends Component
     public const AUTHORIZE_URL = 'https://login.dash.app/authorize';
     public const AUDIENCE = 'https://assetplatform.io';
     public const API_BASE = 'https://api-v2.dash.app';
-
-    /**
-     * Where Dash sends the browser back to after authorising. Nothing serves this route —
-     * it only has to exactly match one of the URLs registered on the Dash API client.
-     * Dash's identity layer is Auth0 (see the `auth0|...` id on GET /current-user), which
-     * matches callback URLs exactly, path included, not by origin — so this is deliberately
-     * the bare per-environment origin with no path, matching what's registered on Dash's
-     * side for each of local/staging/production. Override with DASH_REDIRECT_URI.
-     */
-    public const DEFAULT_REDIRECT_URI = 'https://fivoor-website.test';
 
     private ?Client $client = null;
     private ?string $accessToken = null;
@@ -171,11 +162,11 @@ class DashApi extends Component
     {
         return self::AUTHORIZE_URL . '?' . http_build_query([
             'response_type' => 'code',
-            'client_id' => $this->env('DASH_CLIENT_ID', 'copy it from Admin → Integrations → REST API'),
+            'client_id' => $this->setting('clientId', 'copy it from Admin → Integrations → REST API'),
             'redirect_uri' => $this->redirectUri(),
             'audience' => self::AUDIENCE,
             // offline_access is what makes Dash return a refresh token at all.
-            'scope' => 'subdomain:' . $this->env('DASH_SUBDOMAIN', 'the tenant part of your Dash URL, e.g. "fivoor" from fivoor.dash.app')
+            'scope' => 'subdomain:' . $this->setting('subdomain', 'the tenant part of your Dash URL, e.g. "fivoor" from fivoor.dash.app')
                 . ' offline_access',
         ]);
     }
@@ -185,8 +176,8 @@ class DashApi extends Component
         $response = $this->client()->post(self::TOKEN_URL, [
             'json' => [
                 'grant_type' => 'authorization_code',
-                'client_id' => $this->env('DASH_CLIENT_ID', 'copy it from Admin → Integrations → REST API'),
-                'client_secret' => $this->env('DASH_CLIENT_SECRET', 'copy it from Admin → Integrations → REST API'),
+                'client_id' => $this->setting('clientId', 'copy it from Admin → Integrations → REST API'),
+                'client_secret' => $this->setting('clientSecret', 'copy it from Admin → Integrations → REST API'),
                 'code' => $code,
                 'redirect_uri' => $this->redirectUri(),
             ],
@@ -216,9 +207,43 @@ class DashApi extends Component
         return $tokens;
     }
 
+    /**
+     * Where Dash sends the browser back to after authorising. Nothing serves this route —
+     * it only has to exactly match one of the URLs registered on the Dash API client.
+     * Dash's identity layer is Auth0 (see the `auth0|...` id on GET /current-user), which
+     * matches callback URLs exactly, path included, not by origin — so the fallback is
+     * deliberately the primary site's bare origin with no path, matching what's registered
+     * on Dash's side for each environment.
+     */
     public function redirectUri(): string
     {
-        return (string)App::env('DASH_REDIRECT_URI') ?: self::DEFAULT_REDIRECT_URI;
+        $value = App::parseEnv(Plugin::getInstance()->getSettings()->redirectUri);
+
+        if (is_string($value) && trim($value) !== '') {
+            return trim($value);
+        }
+
+        $baseUrl = Craft::$app->getSites()->getPrimarySite()->getBaseUrl();
+        $parts = $baseUrl === null ? false : parse_url($baseUrl);
+
+        if ($parts === false || !isset($parts['scheme'], $parts['host'])) {
+            throw new DashApiException(
+                'Could not derive a redirect URI from the primary site\'s base URL — set the redirectUri plugin setting (e.g. $DASH_REDIRECT_URI).',
+            );
+        }
+
+        return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ":{$parts['port']}" : '');
+    }
+
+    /**
+     * The env var the refreshToken setting points at, or null when it holds something
+     * other than a `$VAR` reference — `dash/auth` uses this to print a pasteable .env line.
+     */
+    public function refreshTokenEnvName(): ?string
+    {
+        return preg_match('/^\$(\w+)$/', trim(Plugin::getInstance()->getSettings()->refreshToken), $matches)
+            ? $matches[1]
+            : null;
     }
 
     /**
@@ -288,9 +313,9 @@ class DashApi extends Component
         $response = $this->client()->post(self::TOKEN_URL, [
             'json' => [
                 'grant_type' => 'refresh_token',
-                'client_id' => $this->env('DASH_CLIENT_ID', 'see Admin → Integrations → REST API'),
-                'client_secret' => $this->env('DASH_CLIENT_SECRET', 'see Admin → Integrations → REST API'),
-                'refresh_token' => $this->env('DASH_REFRESH_TOKEN', 'run `php craft dash/auth` first'),
+                'client_id' => $this->setting('clientId', 'see Admin → Integrations → REST API'),
+                'client_secret' => $this->setting('clientSecret', 'see Admin → Integrations → REST API'),
+                'refresh_token' => $this->setting('refreshToken', 'run `php craft dash/auth` first'),
             ],
         ]);
 
@@ -307,15 +332,27 @@ class DashApi extends Component
         return $this->accessToken = $payload['access_token'];
     }
 
-    private function env(string $key, string $hint): string
+    /**
+     * Resolve a credential setting through Craft's env syntax, refusing to run without it.
+     *
+     * When the setting still holds an unresolved `$VAR` reference — the common case, since
+     * the defaults are `$DASH_*` references — the error names the env var, so the fix is
+     * actionable without knowing the plugin has settings at all.
+     */
+    private function setting(string $name, string $hint): string
     {
-        $value = (string)App::env($key);
+        $raw = trim((string)Plugin::getInstance()->getSettings()->$name);
+        $value = App::parseEnv($raw);
 
-        if ($value === '') {
-            throw new DashApiException("Missing {$key} in .env — {$hint}");
+        if (is_string($value) && trim($value) !== '') {
+            return trim($value);
         }
 
-        return $value;
+        if (preg_match('/^\$(\w+)$/', $raw, $matches)) {
+            throw new DashApiException("Missing {$matches[1]} in .env — {$hint}");
+        }
+
+        throw new DashApiException("The {$name} plugin setting is empty — {$hint}");
     }
 
     private function client(): Client
