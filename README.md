@@ -8,9 +8,11 @@ Private plugin (handle `dash-dam`) — not for the Plugin Store.
 
 ## Setup
 
-Add the credentials to `.env` per environment. They are deliberately **not** plugin
-settings: settings serialise into project config, and secrets must not travel between
-environments.
+Add the credentials to `.env` per environment. The plugin's credential settings hold
+env-variable *references* (Craft env syntax, resolved at runtime), so project config
+carries variable names and never secrets. The defaults reference the variables below —
+with those set, the settings screen needs no touching. To use different variable names,
+point the settings at them under **Settings → Dash DAM**.
 
 ```dotenv
 DASH_CLIENT_ID=
@@ -18,10 +20,8 @@ DASH_CLIENT_SECRET=
 DASH_SUBDOMAIN=
 DASH_REFRESH_TOKEN=
 
-# Optional
+# Optional — defaults to the primary site's origin
 DASH_REDIRECT_URI=
-DASH_FULL_RECONCILE_MINUTES=30
-DASH_MAX_ORPHAN_SHARE=0.1
 ```
 
 Dash supports neither the client-credentials nor the password grant, so the refresh token
@@ -43,11 +43,13 @@ Three places, split by who owns each one:
 
 | | Where | Owner |
 |---|---|---|
-| Credentials | `.env` | developer, per environment, never committed |
-| Reconcile interval, orphan threshold, trash behaviour | **Settings → Dash DAM** (project config) | developer, committed |
+| Credentials | `.env`, referenced from plugin settings | developer, per environment, never committed |
+| Reconcile interval, orphan threshold, trash behaviour, transform batch size | **Settings → Dash DAM** (project config) | developer, committed |
 | Which Dash folders are synced | **Utilities → Dash** (plugin table) | the client, changeable any time |
 
-The middle row is version-controlled and applied on deploy, so it must not hold secrets. The
+The middle row is version-controlled and applied on deploy, so it must not hold secrets —
+which is why the credential settings hold `$DASH_CLIENT_ID`-style references rather than
+values. The
 bottom row deliberately is not: plugin settings go to project config, and a deploy applies
 the committed YAML over whatever is there — so anything the client changes in the control
 panel has to live outside it.

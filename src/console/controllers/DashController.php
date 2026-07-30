@@ -223,9 +223,15 @@ class DashController extends Controller
             }
 
             $tokens = $api->exchangeAuthorizationCode($this->extractCode($redirectUrl));
+            $envName = $api->refreshTokenEnvName();
 
-            $this->stdout("\nToken exchange OK. Add this to .env:\n\n");
-            $this->stdout('DASH_REFRESH_TOKEN="' . $tokens['refresh_token'] . "\"\n\n", Console::FG_GREEN);
+            if ($envName !== null) {
+                $this->stdout("\nToken exchange OK. Add this to .env:\n\n");
+                $this->stdout($envName . '="' . $tokens['refresh_token'] . "\"\n\n", Console::FG_GREEN);
+            } else {
+                $this->stdout("\nToken exchange OK. Store this wherever the refreshToken plugin setting reads it:\n\n");
+                $this->stdout($tokens['refresh_token'] . "\n\n", Console::FG_GREEN);
+            }
             $this->stdout('access token lifetime : ' . (isset($tokens['expires_in'])
                 ? $tokens['expires_in'] . 's (' . round((int)$tokens['expires_in'] / 3600, 1) . 'h)'
                 : 'not reported') . "\n");

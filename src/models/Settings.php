@@ -3,19 +3,48 @@
 namespace lameco\dash\models;
 
 use craft\base\Model;
+use craft\behaviors\EnvAttributeParserBehavior;
 
 /**
  * Developer-owned settings, version-controlled through project config.
  *
- * Only non-secret behaviour knobs belong here — project config is committed, and every
- * deploy applies it. Credentials stay in `.env`; client-owned configuration such as the
- * folder selection lives in the plugin's own table, which a deploy does not overwrite. See
+ * Project config is committed, and every deploy applies it — so the credential settings
+ * hold env-variable references (`$DASH_CLIENT_ID`-style Craft env syntax, parsed at
+ * runtime), never literal secrets. Client-owned configuration such as the folder selection
+ * lives in the plugin's own table, which a deploy does not overwrite. See
  * services/DashConfig.php.
  *
  * Overridable per environment from `config/dash-dam.php`.
  */
 class Settings extends Model
 {
+    /**
+     * The Dash API client id, or an env reference. From Dash: Admin → Integrations → REST API.
+     */
+    public string $clientId = '$DASH_CLIENT_ID';
+
+    /**
+     * The Dash API client secret, or an env reference — never the literal secret.
+     */
+    public string $clientSecret = '$DASH_CLIENT_SECRET';
+
+    /**
+     * The tenant part of the Dash URL, e.g. "fivoor" from fivoor.dash.app, or an env reference.
+     */
+    public string $subdomain = '$DASH_SUBDOMAIN';
+
+    /**
+     * The OAuth refresh token `php craft dash/auth` produces, as an env reference — never
+     * the literal token.
+     */
+    public string $refreshToken = '$DASH_REFRESH_TOKEN';
+
+    /**
+     * Where Dash sends the browser back to after authorising. Must exactly match a callback
+     * URL registered on the Dash API client — Dash's identity layer is Auth0, which matches
+     * path included, not by origin. Blank or unresolved, the primary site's origin is used.
+     */
+    public string $redirectUri = '$DASH_REDIRECT_URI';
     /**
      * How long the cheap probe is trusted before a full pass runs regardless.
      *
@@ -66,6 +95,15 @@ class Settings extends Model
     public string $altFieldNames = 'ALT-tekst, Alt tekst, Alt text, Alt Text (Accessibility), Alternative text, Alt, AltTextAccessibility';
 
     /**
+     * How many assets one run may pre-generate image transforms for.
+     *
+     * Each one costs a download from Dash against a metered monthly allowance, so a first
+     * pass over an established library is spread across runs. What is left over is reported,
+     * never silently dropped, and the next run picks it up.
+     */
+    public int $maxAssetsPerRun = 25;
+
+    /**
      * @return string[]
      */
     public function altFieldNameList(): array
@@ -89,11 +127,21 @@ class Settings extends Model
         return array_values(array_filter(array_map('trim', explode(',', $names)), static fn(string $name) => $name !== ''));
     }
 
+    protected function defineBehaviors(): array
+    {
+        return [
+            'parser' => [
+                'class' => EnvAttributeParserBehavior::class,
+                'attributes' => ['clientId', 'clientSecret', 'subdomain', 'refreshToken', 'redirectUri'],
+            ],
+        ];
+    }
+
     public function defineRules(): array
     {
         return [
-            [['fullReconcileMinutes', 'maxOrphanShare', 'trashOrphans'], 'required'],
-            ['fullReconcileMinutes', 'integer', 'min' => 1],
+            [['fullReconcileMinutes', 'maxOrphanShare', 'trashOrphans', 'maxAssetsPerRun'], 'required'],
+            [['fullReconcileMinutes', 'maxAssetsPerRun'], 'integer', 'min' => 1],
             ['maxOrphanShare', 'number', 'min' => 0, 'max' => 1],
             ['trashOrphans', 'boolean'],
         ];
