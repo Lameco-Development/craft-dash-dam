@@ -46,11 +46,19 @@ php craft dash/probe           # report only, change nothing
 php craft dash/auth            # one-time, interactive: get a refresh token
 ```
 
-`sync` is the cron entry point. A count-only Dash search is 49 bytes regardless of library
-size, so probing every few minutes is affordable; the probe escalates to a full pass by
-itself once the last one is older than `DASH_FULL_RECONCILE_MINUTES`.
+`sync` is the cron entry point, and the only one the integration needs:
+
+```cron
+*/5 * * * * cd /path/to/site && php craft dash/sync
+```
+
+A count-only Dash search is 49 bytes regardless of library size, so most of those runs exit
+without doing work. The probe escalates to a full pass by itself once the last one is older
+than the reconcile interval, which is how a replaced file gets noticed — there is no second
+schedule to add.
 
 Exit codes: `0` synced, `3` nothing changed, `4` another run holds the lock, `1` failed.
+`3` and `4` are both normal for cron.
 
 ## Why the reconciler owns the lifecycle
 
