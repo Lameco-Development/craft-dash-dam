@@ -807,15 +807,7 @@ class DashSync extends Component
         $keep = [];
 
         foreach ($dash as $state) {
-            $path = $this->folderPathOf($state['path']);
-
-            // Every prefix, so a parent is never pruned out from under its children.
-            foreach (explode('/', rtrim($path, '/')) as $segment) {
-                $prefix = ($prefix ?? '') === '' ? $segment : $prefix . '/' . $segment;
-                $keep[$prefix . '/'] = true;
-            }
-
-            unset($prefix);
+            $this->keepWithAncestors($keep, $this->folderPathOf($state['path']));
         }
 
         // The root is excluded by both checks: volume roots created in the control panel
@@ -829,6 +821,21 @@ class DashSync extends Component
                AND NOT EXISTS (SELECT 1 FROM {{%assets}} a WHERE a.folderId = f.id)",
             [':v' => $volume->id],
         )->queryAll();
+
+        // Folders holding any asset row are already excluded above, but their ancestors
+        // are not, and out-of-scope assets contribute nothing to the Dash-side keep set.
+        // Pruning such an ancestor would cascade through parentId into the occupied
+        // folder, and from there through folderId into the asset rows themselves.
+        $occupied = $db->createCommand(
+            "SELECT DISTINCT f.path FROM {{%volumefolders}} f
+             JOIN {{%assets}} a ON a.folderId = f.id
+             WHERE f.volumeId = :v AND f.path IS NOT NULL AND f.path <> ''",
+            [':v' => $volume->id],
+        )->queryColumn();
+
+        foreach ($occupied as $path) {
+            $this->keepWithAncestors($keep, $path);
+        }
 
         $ids = [];
 
@@ -849,6 +856,22 @@ class DashSync extends Component
         // is already gone by the time its own id comes up and the affected-row count reads
         // lower than the number of folders that actually disappeared.
         return count($ids);
+    }
+
+    /**
+     * Mark a folder path and every prefix of it as kept, so a parent is never pruned out
+     * from under its children.
+     *
+     * @param array<string, true> $keep
+     */
+    private function keepWithAncestors(array &$keep, string $path): void
+    {
+        $prefix = '';
+
+        foreach (explode('/', rtrim($path, '/')) as $segment) {
+            $prefix = $prefix === '' ? $segment : $prefix . '/' . $segment;
+            $keep[$prefix . '/'] = true;
+        }
     }
 
     /**
