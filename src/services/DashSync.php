@@ -501,8 +501,21 @@ class DashSync extends Component
                 $sizeChanged = $state['size'] > 0 && (int)$asset->size !== $state['size'];
                 $dimsChanged = $state['width'] !== null
                     && ((int)$asset->width !== (int)$state['width'] || (int)$asset->height !== (int)$state['height']);
-                // Dash leads: an empty value there clears Craft's rather than leaving a stale one.
-                $altChanged = $altSyncable && ($state['alt'] ?? '') !== ($asset->alt ?? '');
+                // Craft leads on alt text, and the sync only ever fills a gap.
+                //
+                // Dash ships no alt-text field, so Craft is where alt text is actually authored
+                // — the volume's AltField is editable for exactly that reason. Overwriting it
+                // from Dash is the open data-loss bug in the one mature plugin in this space
+                // (imageshoporg/Craft#11: "I can't sync metadata at all without losing
+                // locally-set data"), and it would be worse here: an empty Dash value would
+                // wipe an editor's work on a healthcare site's accessibility text.
+                //
+                // So a value arriving from Dash seeds an empty Craft field and nothing more. If
+                // an alt field is configured in Dash later, it fills the gaps without touching
+                // anything a person wrote.
+                $altChanged = $altSyncable
+                    && ($state['alt'] ?? '') !== ''
+                    && ($asset->alt ?? '') === '';
 
                 // craftcms/cms#19328: Craft re-downloads a cached remote original only when it
                 // is missing or zero bytes, and never invalidates derivatives when the source
@@ -548,10 +561,7 @@ class DashSync extends Component
                 }
 
                 if ($altChanged) {
-                    // Empty string, never null: `assets_sites.alt` only overrides the legacy
-                    // `assets.alt` column when non-null, and afterSave() won't rewrite that
-                    // column once set — so null leaves the old text visible forever.
-                    $asset->alt = (string)($state['alt'] ?? '');
+                    $asset->alt = (string)$state['alt'];
                 }
 
                 if ($sizeChanged) {
@@ -584,8 +594,7 @@ class DashSync extends Component
                 }
 
                 if ($altChanged) {
-                    $this->log("  ALT      #{$assetId}  -> "
-                        . ($state['alt'] === null || $state['alt'] === '' ? '(cleared)' : "\"{$state['alt']}\""));
+                    $this->log("  ALT      #{$assetId}  filled from Dash -> \"{$state['alt']}\"");
                     $counts['altSynced']++;
                 }
 
