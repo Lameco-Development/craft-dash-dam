@@ -23,14 +23,21 @@ class Install extends Migration
     public function safeUp(): bool
     {
         if ($this->db->tableExists(self::MAP_TABLE)) {
-            if ($this->db->getTableSchema(self::MAP_TABLE)->getColumn('checksum') === null) {
+            $columns = $this->db->getTableSchema(self::MAP_TABLE);
+
+            if ($columns->getColumn('checksum') === null) {
                 $this->addColumn(self::MAP_TABLE, 'checksum', $this->string(64)->null());
+            }
+
+            if ($columns->getColumn('missingSince') === null) {
+                $this->addColumn(self::MAP_TABLE, 'missingSince', $this->dateTime()->null());
             }
         } else {
             $this->createTable(self::MAP_TABLE, [
                 'assetId' => $this->integer()->notNull(),
                 'dashId' => $this->string(64)->notNull(),
                 'checksum' => $this->string(64)->null(),
+                'missingSince' => $this->dateTime()->null(),
                 'PRIMARY KEY([[assetId]])',
             ]);
             $this->createIndex(null, self::MAP_TABLE, ['dashId'], true);

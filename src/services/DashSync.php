@@ -6,8 +6,10 @@ use Craft;
 use craft\elements\Asset;
 use craft\helpers\App;
 use craft\helpers\Assets;
+use craft\helpers\Db;
 use craft\helpers\Image;
 use craft\models\Volume;
+use DateTime;
 use lameco\dash\errors\DashApiException;
 use lameco\dash\fs\DashFs;
 use lameco\dash\Plugin;
@@ -203,18 +205,19 @@ class DashSync extends Component
             $this->log("  note: {$skipCount} {$fileType} asset(s) skipped — unverified file type, not synced");
         }
 
-        $mapped = $db->createCommand('SELECT assetId, dashId, checksum FROM ' . self::MAP_TABLE)->queryAll();
+        $mapped = $db->createCommand('SELECT assetId, dashId, checksum, missingSince FROM ' . self::MAP_TABLE)->queryAll();
         $byAssetId = array_column($mapped, 'dashId', 'assetId');
         $knownChecksum = array_column($mapped, 'checksum', 'assetId');
+        $wasMissing = array_column($mapped, 'missingSince', 'assetId');
 
         $this->refuseMassDisappearance($byAssetId, $dash);
 
         $counts = ['adopted' => 0, 'unmatched' => 0, 'created' => 0, 'moved' => 0, 'retitled' => 0,
-            'altSynced' => 0, 'resized' => 0, 'restamped' => 0, 'trashed' => 0, 'inUse' => 0, 'failed' => 0,
-            'skippedUnsupported' => array_sum($skippedByType)];
+            'altSynced' => 0, 'resized' => 0, 'restamped' => 0, 'trashed' => 0, 'inUse' => 0, 'returned' => 0,
+            'failed' => 0, 'skippedUnsupported' => array_sum($skippedByType)];
 
         $this->adoptUnmapped($volume, $dash, $byAssetId, $counts);
-        $this->syncMapped($volume, $dash, $byAssetId, $knownChecksum, $altSyncable, $counts);
+        $this->syncMapped($volume, $dash, $byAssetId, $knownChecksum, $wasMissing, $altSyncable, $counts);
         $this->createMissing($volume, $dash, $byAssetId, $altSyncable, $counts);
 
         return $counts;
@@ -366,6 +369,7 @@ class DashSync extends Component
         array $dash,
         array $byAssetId,
         array $knownChecksum,
+        array $wasMissing,
         bool $altSyncable,
         array &$counts,
     ): void {
@@ -392,6 +396,14 @@ class DashSync extends Component
                     // for all of them instead of one each.
                     $orphanIds[] = $assetId;
                     continue;
+                }
+
+                // Restored in Dash, or pulled back out of its bin. Clearing the stamp is what
+                // takes the asset off the control panel's broken list.
+                if (($wasMissing[$assetId] ?? null) !== null) {
+                    $db->createCommand()->update(self::MAP_TABLE, ['missingSince' => null], ['assetId' => $assetId])->execute();
+                    $this->log("  RETURNED #{$assetId}  back in Dash");
+                    $counts['returned']++;
                 }
 
                 $state = $dash[$dashId];
@@ -548,11 +560,7 @@ class DashSync extends Component
     private function handleOrphans(array $orphanIds, array &$counts): void
     {
         $db = Craft::$app->getDb();
-        $relationCounts = $db->createCommand(
-            'SELECT targetId, COUNT(*) AS uses FROM {{%relations}} WHERE targetId IN ('
-            . implode(',', array_map('intval', $orphanIds)) . ') GROUP BY targetId',
-        )->queryAll();
-        $uses = array_column($relationCounts, 'uses', 'targetId');
+        $uses = $this->usageCounts($orphanIds);
 
         foreach (array_chunk($orphanIds, self::CHUNK_SIZE) as $ids) {
             foreach (Asset::find()->id($ids)->status(null)->all() as $asset) {
@@ -564,6 +572,15 @@ class DashSync extends Component
                         "Dash asset #{$asset->id} ({$asset->getPath()}) no longer exists in Dash but was kept: {$reason}.",
                         __METHOD__,
                     );
+
+                    // Stamped once and then left alone, so the control panel can report how
+                    // long this has been broken rather than how recently a sync noticed.
+                    $db->createCommand()->update(
+                        self::MAP_TABLE,
+                        ['missingSince' => Db::prepareDateForDb(new DateTime())],
+                        ['assetId' => $asset->id, 'missingSince' => null],
+                    )->execute();
+
                     $this->log("  IN USE   #{$asset->id}  {$asset->getPath()}  — gone from Dash, {$reason}");
                     $counts['inUse']++;
                     continue;
@@ -658,6 +675,57 @@ class DashSync extends Component
     private function folderPathOf(string $path): string
     {
         return dirname($path) === '.' ? '' : dirname($path) . '/';
+    }
+
+    /**
+     * Assets that stopped coming back from Dash and were kept rather than trashed — the
+     * ones that will serve a broken image. Reads the mapping table only: the control panel
+     * must never call Dash to render a page.
+     *
+     * @return array<int, string> assetId => when it went missing
+     */
+    public function missingAssets(): array
+    {
+        $rows = Craft::$app->getDb()
+            ->createCommand('SELECT assetId, missingSince FROM ' . self::MAP_TABLE
+                . ' WHERE missingSince IS NOT NULL ORDER BY missingSince ASC')
+            ->queryAll();
+
+        return array_column($rows, 'missingSince', 'assetId');
+    }
+
+    /**
+     * How many elements relate to each of the given assets. Relations are how Assets fields
+     * store their references, so this is the in-use test — with one blind spot: an asset
+     * referenced only from inside rich text as a `{asset:123:url}` ref tag is not seen.
+     *
+     * @param int[] $assetIds
+     * @return array<int, int> assetId => number of relations
+     */
+    public function usageCounts(array $assetIds): array
+    {
+        if ($assetIds === []) {
+            return [];
+        }
+
+        $rows = Craft::$app->getDb()->createCommand(
+            'SELECT targetId, COUNT(*) AS uses FROM {{%relations}} WHERE targetId IN ('
+            . implode(',', array_map('intval', $assetIds)) . ') GROUP BY targetId',
+        )->queryAll();
+
+        return array_column($rows, 'uses', 'targetId');
+    }
+
+    public function missingCount(): int
+    {
+        return (int)Craft::$app->getDb()
+            ->createCommand('SELECT COUNT(*) FROM ' . self::MAP_TABLE . ' WHERE missingSince IS NOT NULL')
+            ->queryScalar();
+    }
+
+    public function lastSync(): ?string
+    {
+        return $this->state('lastSync');
     }
 
     private function state(string $key): ?string

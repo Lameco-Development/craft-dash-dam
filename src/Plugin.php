@@ -7,10 +7,12 @@ use craft\base\Event;
 use craft\base\Plugin as BasePlugin;
 use craft\events\RegisterComponentTypesEvent;
 use craft\services\Fs;
+use craft\services\Utilities;
 use lameco\dash\console\controllers\DashController;
 use lameco\dash\fs\DashFs;
 use lameco\dash\services\DashApi;
 use lameco\dash\services\DashSync;
+use lameco\dash\utilities\DashUtility;
 
 /**
  * Mounts the Dash (dash.app) DAM as a read-only Craft volume.
@@ -21,7 +23,7 @@ use lameco\dash\services\DashSync;
  */
 class Plugin extends BasePlugin
 {
-    public string $schemaVersion = '1.0.0';
+    public string $schemaVersion = '1.1.0';
 
     public static function config(): array
     {
@@ -41,6 +43,10 @@ class Plugin extends BasePlugin
         // volumes, which happens before the application finishes initialising.
         Event::on(Fs::class, Fs::EVENT_REGISTER_FILESYSTEM_TYPES, static function(RegisterComponentTypesEvent $event) {
             $event->types[] = DashFs::class;
+        });
+
+        Event::on(Utilities::class, Utilities::EVENT_REGISTER_UTILITIES, static function(RegisterComponentTypesEvent $event) {
+            $event->types[] = DashUtility::class;
         });
 
         // The handle is `_craft-dash`, so the route Craft resolves on its own would be

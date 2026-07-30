@@ -1,0 +1,60 @@
+{% if lastSync %}
+    <p class="light">
+        {{ 'Last verified against Dash'|t('_craft-dash') }}:
+        {{ lastSync|datetime('short') }}
+    </p>
+{% else %}
+    <p class="light">{{ 'Dash has never been synced on this environment.'|t('_craft-dash') }}</p>
+{% endif %}
+
+<h2>{{ 'Deleted in Dash, still here'|t('_craft-dash') }}</h2>
+
+{% if missing is empty %}
+    <p class="zilch">
+        {{ 'Nothing is broken. Every asset in the Dash volume still exists in Dash.'|t('_craft-dash') }}
+    </p>
+{% else %}
+    <p>
+        {{ 'These assets were removed from Dash but were kept in Craft, because deleting one that a page still uses would break that page. Their files are gone, so any image transform generated from them will fail.'|t('_craft-dash') }}
+    </p>
+    <p>
+        <strong>{{ 'To resolve one'|t('_craft-dash') }}:</strong>
+        {{ 'either restore it in Dash — the next sync picks it up automatically — or replace it on the pages listed below, after which the sync removes it on its own.'|t('_craft-dash') }}
+    </p>
+
+    <table class="data fullwidth">
+        <thead>
+            <tr>
+                <th>{{ 'Asset'|t('_craft-dash') }}</th>
+                <th>{{ 'Location'|t('_craft-dash') }}</th>
+                <th>{{ 'Used by'|t('_craft-dash') }}</th>
+                <th>{{ 'Gone since'|t('_craft-dash') }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for assetId, missingSince in missing %}
+                {% set asset = assets[assetId] ?? null %}
+                <tr>
+                    <td>
+                        <span class="status red"></span>
+                        {% if asset %}
+                            <a href="{{ asset.cpEditUrl }}">{{ asset.title ?: asset.filename }}</a>
+                        {% else %}
+                            <span class="light">#{{ assetId }} ({{ 'no longer in Craft'|t('_craft-dash') }})</span>
+                        {% endif %}
+                    </td>
+                    <td class="light">{{ asset ? asset.path : '—' }}</td>
+                    <td>
+                        {% set used = uses[assetId] ?? 0 %}
+                        {% if used > 0 %}
+                            {{ '{n, plural, =1{1 element} other{# elements}}'|t('_craft-dash', { n: used }) }}
+                        {% else %}
+                            <span class="light">{{ 'nothing'|t('_craft-dash') }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="light">{{ missingSince|datetime('short') }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
