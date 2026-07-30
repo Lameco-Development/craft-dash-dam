@@ -1,8 +1,60 @@
 {% import '_includes/forms.twig' as forms %}
 
 <p class="light">
-    {{ 'Credentials are read from `.env`, not from here — project config is committed, and secrets must not be. Which Dash folders are synced is set by the client under Utilities → Dash, so a deploy cannot revert their choice.'|t('dash-dam') }}
+    {{ 'The credential settings hold references to environment variables, resolved when the plugin talks to Dash. Never paste a secret in directly — these settings are committed to project config, and secrets must not be. Which Dash folders are synced is set by the client under Utilities → Dash, so a deploy cannot revert their choice.'|t('dash-dam') }}
 </p>
+
+{{ forms.autosuggestField({
+    label: 'Client ID'|t('dash-dam'),
+    instructions: 'The Dash API client id — copy it from Admin → Integrations → REST API in Dash.'|t('dash-dam'),
+    id: 'clientId',
+    name: 'clientId',
+    suggestEnvVars: true,
+    value: settings.clientId,
+    errors: settings.getErrors('clientId'),
+}) }}
+
+{{ forms.autosuggestField({
+    label: 'Client secret'|t('dash-dam'),
+    instructions: 'From the same place as the client id. Reference an environment variable — never the literal secret, which would be committed to project config.'|t('dash-dam'),
+    id: 'clientSecret',
+    name: 'clientSecret',
+    suggestEnvVars: true,
+    value: settings.clientSecret,
+    errors: settings.getErrors('clientSecret'),
+}) }}
+
+{{ forms.autosuggestField({
+    label: 'Subdomain'|t('dash-dam'),
+    instructions: 'The tenant part of your Dash URL — “fivoor” from fivoor.dash.app.'|t('dash-dam'),
+    id: 'subdomain',
+    name: 'subdomain',
+    suggestEnvVars: true,
+    value: settings.subdomain,
+    errors: settings.getErrors('subdomain'),
+}) }}
+
+{{ forms.autosuggestField({
+    label: 'Refresh token'|t('dash-dam'),
+    instructions: 'Obtained once with `php craft dash/auth`. Reference an environment variable — never the literal token, which would be committed to project config.'|t('dash-dam'),
+    id: 'refreshToken',
+    name: 'refreshToken',
+    suggestEnvVars: true,
+    value: settings.refreshToken,
+    errors: settings.getErrors('refreshToken'),
+}) }}
+
+{{ forms.autosuggestField({
+    label: 'Redirect URI'|t('dash-dam'),
+    instructions: 'Where Dash sends the browser back after authorising. It must exactly match a callback URL registered on the Dash API client — matching includes the path. When the variable is unset, the primary site’s origin is used.'|t('dash-dam'),
+    id: 'redirectUri',
+    name: 'redirectUri',
+    suggestEnvVars: true,
+    value: settings.redirectUri,
+    errors: settings.getErrors('redirectUri'),
+}) }}
+
+<hr>
 
 {{ forms.textField({
     label: 'Full reconcile interval'|t('dash-dam'),
@@ -31,6 +83,21 @@
     size: 6,
     value: settings.maxOrphanShare,
     errors: settings.getErrors('maxOrphanShare'),
+    required: true,
+}) }}
+
+{{ forms.textField({
+    label: 'Transform batch size'|t('dash-dam'),
+    instructions: 'How many assets one run may pre-generate image transforms for. Every asset costs a download from Dash against a metered monthly allowance, so a first pass over an established library is spread across runs — anything left over is reported and picked up by the next run.'|t('dash-dam'),
+    id: 'maxAssetsPerRun',
+    name: 'maxAssetsPerRun',
+    type: 'number',
+    min: 1,
+    step: 1,
+    size: 6,
+    unit: 'assets'|t('dash-dam'),
+    value: settings.maxAssetsPerRun,
+    errors: settings.getErrors('maxAssetsPerRun'),
     required: true,
 }) }}
 
