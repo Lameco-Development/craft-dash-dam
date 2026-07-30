@@ -51,7 +51,9 @@ class DashUtility extends Utility
 
     public static function contentHtml(): string
     {
-        $sync = Plugin::getInstance()->getDashSync();
+        $plugin = Plugin::getInstance();
+        $sync = $plugin->getDashSync();
+        $config = $plugin->getDashConfig();
         $missing = $sync->missingAssets();
         $assets = [];
         $uses = [];
@@ -66,6 +68,8 @@ class DashUtility extends Utility
             'assets' => $assets,
             'uses' => $uses,
             'lastSync' => $sync->lastSync(),
+            'availableFolders' => $config->availableFolders(),
+            'syncFolders' => $config->syncFolders(),
         ]);
     }
 }

@@ -198,11 +198,21 @@ class DashSync extends Component
         }
 
         $db = Craft::$app->getDb();
-        ['assets' => $dash, 'altSyncable' => $altSyncable, 'skippedByType' => $skippedByType] = $this->dashState();
+        [
+            'assets' => $dash,
+            'allIds' => $allIds,
+            'altSyncable' => $altSyncable,
+            'skippedByType' => $skippedByType,
+            'outOfScope' => $outOfScope,
+        ] = $this->dashState();
         $this->log(count($dash) . ' assets in Dash');
 
         foreach ($skippedByType as $fileType => $skipCount) {
             $this->log("  note: {$skipCount} {$fileType} asset(s) skipped — unverified file type, not synced");
+        }
+
+        if ($outOfScope > 0) {
+            $this->log("  note: {$outOfScope} asset(s) outside the selected folders — not synced");
         }
 
         $mapped = $db->createCommand('SELECT assetId, dashId, checksum, missingSince FROM ' . self::MAP_TABLE)->queryAll();
@@ -210,14 +220,16 @@ class DashSync extends Component
         $knownChecksum = array_column($mapped, 'checksum', 'assetId');
         $wasMissing = array_column($mapped, 'missingSince', 'assetId');
 
-        $this->refuseMassDisappearance($byAssetId, $dash);
+        // Against everything Dash returned, not just the in-scope subset: narrowing the
+        // folder selection is not a deletion and must not trip the abort.
+        $this->refuseMassDisappearance($byAssetId, $allIds);
 
         $counts = ['adopted' => 0, 'unmatched' => 0, 'created' => 0, 'moved' => 0, 'retitled' => 0,
             'altSynced' => 0, 'resized' => 0, 'restamped' => 0, 'trashed' => 0, 'inUse' => 0, 'returned' => 0,
-            'failed' => 0, 'skippedUnsupported' => array_sum($skippedByType)];
+            'outOfScope' => 0, 'failed' => 0, 'skippedUnsupported' => array_sum($skippedByType)];
 
         $this->adoptUnmapped($volume, $dash, $byAssetId, $counts);
-        $this->syncMapped($volume, $dash, $byAssetId, $knownChecksum, $wasMissing, $altSyncable, $counts);
+        $this->syncMapped($volume, $dash, $allIds, $byAssetId, $knownChecksum, $wasMissing, $altSyncable, $counts);
         $this->createMissing($volume, $dash, $byAssetId, $altSyncable, $counts);
 
         return $counts;
@@ -230,7 +242,11 @@ class DashSync extends Component
      * empty" — only the second may clear Craft's value. Without it, running a sync before
      * the field is configured would wipe every alt text on the site.
      *
-     * @return array{assets: array<string, array>, altSyncable: bool, skippedByType: array<string, int>}
+     * `allIds` is every asset Dash returned, before the folder-scope and file-type filters.
+     * It is what makes "no longer in Dash" mean deletion: without it, narrowing the folder
+     * selection would read as a bulk deletion and trash live assets.
+     *
+     * @return array{assets: array<string, array>, allIds: array<string, true>, altSyncable: bool, skippedByType: array<string, int>, outOfScope: int}
      */
     private function dashState(): array
     {
@@ -264,10 +280,17 @@ class DashSync extends Component
         }
 
         $folderPaths = $api->folderPaths($folderFieldId);
+        $config = $this->config();
         $assets = [];
+        $allIds = [];
         $skippedByType = [];
+        $outOfScope = 0;
 
         foreach ($api->allAssets() as $asset) {
+            // Recorded before every filter below: this set answers "does it still exist in
+            // Dash", which is a different question from "should we be managing it".
+            $allIds[$asset['id']] = true;
+
             $file = $asset['currentAssetFile'] ?? null;
 
             if ($file === null || empty($file['filename'])) {
@@ -286,6 +309,11 @@ class DashSync extends Component
                 $asset['metadata']['values'][$folderFieldId] ?? [],
             )));
 
+            if (!$config->includesFolder($folders[0] ?? self::UNFILED)) {
+                $outOfScope++;
+                continue;
+            }
+
             $assets[$asset['id']] = [
                 // Must match DashFs exactly, or the two disagree on every path.
                 'path' => ($folders[0] ?? self::UNFILED) . '/'
@@ -301,7 +329,13 @@ class DashSync extends Component
             ];
         }
 
-        return ['assets' => $assets, 'altSyncable' => $altFieldId !== null, 'skippedByType' => $skippedByType];
+        return [
+            'assets' => $assets,
+            'allIds' => $allIds,
+            'altSyncable' => $altFieldId !== null,
+            'skippedByType' => $skippedByType,
+            'outOfScope' => $outOfScope,
+        ];
     }
 
     /**
@@ -367,6 +401,7 @@ class DashSync extends Component
     private function syncMapped(
         Volume $volume,
         array $dash,
+        array $allIds,
         array $byAssetId,
         array $knownChecksum,
         array $wasMissing,
@@ -391,6 +426,15 @@ class DashSync extends Component
                 }
 
                 if (!isset($dash[$dashId])) {
+                    // Still in Dash, just no longer inside the selected folders. Left exactly
+                    // as it is — not moved, not retitled, and above all not trashed. Deleting
+                    // an asset because someone narrowed the folder selection would take live
+                    // images off the site.
+                    if (isset($allIds[$dashId])) {
+                        $counts['outOfScope']++;
+                        continue;
+                    }
+
                     // Genuinely removed from Dash — this, and only this, is a real orphan.
                     // Collected rather than handled here so the in-use test is one query
                     // for all of them instead of one each.
@@ -531,7 +575,7 @@ class DashSync extends Component
      * coming back from the search and every unreferenced one would be trashed. Losing a
      * large share at once is therefore treated as a broken read rather than as intent.
      */
-    private function refuseMassDisappearance(array $byAssetId, array $dash): void
+    private function refuseMassDisappearance(array $byAssetId, array $allIds): void
     {
         $mapped = count($byAssetId);
 
@@ -539,7 +583,7 @@ class DashSync extends Component
             return;
         }
 
-        $missing = count(array_diff(array_values($byAssetId), array_keys($dash)));
+        $missing = count(array_diff(array_values($byAssetId), array_keys($allIds)));
         $share = $missing / $mapped;
 
         if ($missing <= self::ORPHAN_ABORT_FLOOR || $share <= $this->maxOrphanShare) {
@@ -752,5 +796,10 @@ class DashSync extends Component
     private function api(): DashApi
     {
         return Plugin::getInstance()->getDashApi();
+    }
+
+    private function config(): DashConfig
+    {
+        return Plugin::getInstance()->getDashConfig();
     }
 }

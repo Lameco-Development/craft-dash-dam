@@ -19,6 +19,7 @@ class Install extends Migration
 {
     private const MAP_TABLE = '{{%dash_asset_map}}';
     private const STATE_TABLE = '{{%dash_sync_state}}';
+    private const CONFIG_TABLE = '{{%dash_config}}';
 
     public function safeUp(): bool
     {
@@ -51,6 +52,15 @@ class Install extends Migration
             ]);
         }
 
+        // Separate from STATE_TABLE: this one a human writes, that one the sync writes.
+        if (!$this->db->tableExists(self::CONFIG_TABLE)) {
+            $this->createTable(self::CONFIG_TABLE, [
+                'k' => $this->string(64)->notNull(),
+                'v' => $this->text()->null(),
+                'PRIMARY KEY([[k]])',
+            ]);
+        }
+
         return true;
     }
 
@@ -58,6 +68,7 @@ class Install extends Migration
     {
         $this->dropTableIfExists(self::MAP_TABLE);
         $this->dropTableIfExists(self::STATE_TABLE);
+        $this->dropTableIfExists(self::CONFIG_TABLE);
 
         return true;
     }

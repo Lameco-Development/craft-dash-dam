@@ -1,3 +1,5 @@
+{% import '_includes/forms.twig' as forms %}
+
 {% if lastSync %}
     <p class="light">
         {{ 'Last verified against Dash'|t('_craft-dash') }}:
@@ -57,4 +59,42 @@
             {% endfor %}
         </tbody>
     </table>
+{% endif %}
+
+<hr>
+
+<h2>{{ 'Synced folders'|t('_craft-dash') }}</h2>
+
+{% if availableFolders is null %}
+    <p class="error">
+        {{ 'Could not reach Dash to list the folders. The selection below is unchanged; try again once Dash is reachable.'|t('_craft-dash') }}
+    </p>
+{% elseif availableFolders is empty %}
+    <p class="zilch">{{ 'Dash reports no folders on this account.'|t('_craft-dash') }}</p>
+{% else %}
+    <form method="post" accept-charset="UTF-8">
+        {{ csrfInput() }}
+        {{ actionInput('_craft-dash/config/save-folders') }}
+        {{ redirectInput('utilities/dash') }}
+
+        <p>
+            {{ 'Choose which Dash folders are synced into Craft. Selecting a folder includes everything filed beneath it. With nothing selected, every folder is synced.'|t('_craft-dash') }}
+        </p>
+
+        {{ forms.checkboxSelectField({
+            label: 'Folders'|t('_craft-dash'),
+            name: 'syncFolders',
+            options: availableFolders|map(path => { label: path, value: path }),
+            values: syncFolders,
+            showAllOption: true,
+        }) }}
+
+        <p class="light">
+            {{ 'Removing a folder here does not delete anything. Assets already in Craft from that folder are left exactly as they are — they simply stop being kept up to date.'|t('_craft-dash') }}
+        </p>
+
+        <div class="buttons">
+            <button type="submit" class="btn submit">{{ 'Save'|t('_craft-dash') }}</button>
+        </div>
+    </form>
 {% endif %}

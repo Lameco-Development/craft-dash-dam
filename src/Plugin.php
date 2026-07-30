@@ -11,6 +11,7 @@ use craft\services\Utilities;
 use lameco\dash\console\controllers\DashController;
 use lameco\dash\fs\DashFs;
 use lameco\dash\services\DashApi;
+use lameco\dash\services\DashConfig;
 use lameco\dash\services\DashSync;
 use lameco\dash\utilities\DashUtility;
 
@@ -19,17 +20,19 @@ use lameco\dash\utilities\DashUtility;
  *
  * @method static Plugin getInstance()
  * @property-read DashApi $dashApi
+ * @property-read DashConfig $dashConfig
  * @property-read DashSync $dashSync
  */
 class Plugin extends BasePlugin
 {
-    public string $schemaVersion = '1.1.0';
+    public string $schemaVersion = '1.2.0';
 
     public static function config(): array
     {
         return [
             'components' => [
                 'dashApi' => DashApi::class,
+                'dashConfig' => DashConfig::class,
                 'dashSync' => DashSync::class,
             ],
         ];
@@ -60,6 +63,11 @@ class Plugin extends BasePlugin
     public function getDashApi(): DashApi
     {
         return $this->get('dashApi');
+    }
+
+    public function getDashConfig(): DashConfig
+    {
+        return $this->get('dashConfig');
     }
 
     public function getDashSync(): DashSync
