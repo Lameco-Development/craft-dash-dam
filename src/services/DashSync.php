@@ -13,6 +13,7 @@ use lameco\dash\DashVolumes;
 use lameco\dash\errors\DashApiException;
 use lameco\dash\fs\DashFs;
 use lameco\dash\helpers\CanonicalFolder;
+use lameco\dash\helpers\ProbeDecision;
 use lameco\dash\Plugin;
 use Throwable;
 use yii\base\Component;
@@ -151,15 +152,20 @@ class DashSync extends Component
         // that can see a deletion.
         $remoteTotal = $this->api()->countAssets(['type' => 'MATCH_ALL']);
         $knownTotal = $this->state('remoteTotal');
-        $countChanged = $knownTotal === null || (int)$knownTotal !== $remoteTotal;
         $mappedTotal = (int)Craft::$app->getDb()
             ->createCommand('SELECT COUNT(*) FROM ' . self::MAP_TABLE)
             ->queryScalar();
 
         // Every reconcile rescans the whole library and compares checksums, so the
         // watermark doubles as "when everything was last verified".
-        $ageMinutes = $watermark === null ? null : (time() - strtotime($watermark)) / 60;
-        $stale = $ageMinutes !== null && $ageMinutes >= $this->fullReconcileMinutes;
+        $decision = ProbeDecision::evaluate(
+            $watermark,
+            $modified,
+            $remoteTotal,
+            $knownTotal === null ? null : (int)$knownTotal,
+            time(),
+            $this->fullReconcileMinutes,
+        );
 
         return [
             'now' => $now,
@@ -168,10 +174,7 @@ class DashSync extends Component
             'remoteTotal' => $remoteTotal,
             'knownTotal' => $knownTotal === null ? null : (int)$knownTotal,
             'mappedTotal' => $mappedTotal,
-            'countChanged' => $countChanged,
-            'stale' => $stale,
-            'watermarkAgeMinutes' => $ageMinutes,
-            'changed' => $watermark === null || $modified > 0 || $countChanged || $stale,
+            ...$decision,
         ];
     }
 
@@ -804,24 +807,37 @@ class DashSync extends Component
         $keep = [];
 
         foreach ($dash as $state) {
-            $path = $this->folderPathOf($state['path']);
-
-            // Every prefix, so a parent is never pruned out from under its children.
-            foreach (explode('/', rtrim($path, '/')) as $segment) {
-                $prefix = ($prefix ?? '') === '' ? $segment : $prefix . '/' . $segment;
-                $keep[$prefix . '/'] = true;
-            }
-
-            unset($prefix);
+            $this->keepWithAncestors($keep, $this->folderPathOf($state['path']));
         }
 
+        // The root is excluded by both halves of the predicate: volume roots created in
+        // the control panel carry a NULL path, while Volumes::saveVolume() writes an
+        // empty string. Missing the second case would prune the root, and the
+        // parentId/folderId cascades would take every folder row and asset row in the
+        // volume with it.
+        $notRoot = "f.volumeId = :v AND f.path IS NOT NULL AND f.path <> ''";
         $db = Craft::$app->getDb();
         $stale = $db->createCommand(
-            'SELECT f.id, f.path FROM {{%volumefolders}} f
-             WHERE f.volumeId = :v AND f.path IS NOT NULL
-               AND NOT EXISTS (SELECT 1 FROM {{%assets}} a WHERE a.folderId = f.id)',
+            "SELECT f.id, f.path FROM {{%volumefolders}} f
+             WHERE {$notRoot}
+               AND NOT EXISTS (SELECT 1 FROM {{%assets}} a WHERE a.folderId = f.id)",
             [':v' => $volume->id],
         )->queryAll();
+
+        // Folders holding any asset row are already excluded above, but their ancestors
+        // are not, and out-of-scope assets contribute nothing to the Dash-side keep set.
+        // Pruning such an ancestor would cascade through parentId into the occupied
+        // folder, and from there through folderId into the asset rows themselves.
+        $occupied = $db->createCommand(
+            "SELECT DISTINCT f.path FROM {{%volumefolders}} f
+             JOIN {{%assets}} a ON a.folderId = f.id
+             WHERE {$notRoot}",
+            [':v' => $volume->id],
+        )->queryColumn();
+
+        foreach ($occupied as $path) {
+            $this->keepWithAncestors($keep, $path);
+        }
 
         $ids = [];
 
@@ -842,6 +858,22 @@ class DashSync extends Component
         // is already gone by the time its own id comes up and the affected-row count reads
         // lower than the number of folders that actually disappeared.
         return count($ids);
+    }
+
+    /**
+     * Mark a folder path and every prefix of it as kept, so a parent is never pruned out
+     * from under its children.
+     *
+     * @param array<string, true> $keep
+     */
+    private function keepWithAncestors(array &$keep, string $path): void
+    {
+        $prefix = '';
+
+        foreach (explode('/', rtrim($path, '/')) as $segment) {
+            $prefix = $prefix === '' ? $segment : $prefix . '/' . $segment;
+            $keep[$prefix . '/'] = true;
+        }
     }
 
     /**

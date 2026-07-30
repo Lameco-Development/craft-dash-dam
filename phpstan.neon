@@ -6,3 +6,6 @@ parameters:
     paths:
         - src
         - tests
+    excludePaths:
+        # The integration-test app writes runtime state (compiled classes, logs) here.
+        - tests/_craft/storage

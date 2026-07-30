@@ -4,6 +4,7 @@ namespace lameco\dash\services;
 
 use Craft;
 use lameco\dash\fs\DashFs;
+use lameco\dash\helpers\FolderScope;
 use lameco\dash\Plugin;
 use Throwable;
 use yii\base\Component;
@@ -86,19 +87,7 @@ class DashConfig extends Component
      */
     public function includesFolder(string $path): bool
     {
-        $selected = $this->syncFolders();
-
-        if ($selected === []) {
-            return true;
-        }
-
-        foreach ($selected as $prefix) {
-            if ($path === $prefix || str_starts_with($path, $prefix . '/')) {
-                return true;
-            }
-        }
-
-        return false;
+        return FolderScope::includes($this->syncFolders(), $path);
     }
 
     /**
