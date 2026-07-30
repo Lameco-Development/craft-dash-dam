@@ -52,12 +52,6 @@ class DashSync extends Component
     private const ORPHAN_ABORT_FLOOR = 5;
 
     /**
-     * Candidate names for the Dash field holding alt text, most specific first. Dash
-     * ships no such field, so each account has to create one.
-     */
-    private const ALT_FIELD_NAMES = ['Alt text', 'Alt Text (Accessibility)', 'Alternative text', 'Alt', 'AltTextAccessibility'];
-
-    /**
      * Dash `currentAssetFile.fileType` values this sync has actually been proven to
      * handle correctly end-to-end — element creation, dimensions, and serving real bytes
      * through DashFs::read(). IMAGE was the original spike. VIDEO was verified afterwards
@@ -301,13 +295,25 @@ class DashSync extends Component
             return null;
         };
 
-        $titleFieldId = $findField(['Title']);
-        $altFieldId = $findField(self::ALT_FIELD_NAMES);
+        $settings = Plugin::getInstance()->getSettings();
+        $altFieldNames = $settings->altFieldNameList();
+        $titleFieldNames = $settings->titleFieldNameList();
+        $titleFieldId = $findField($titleFieldNames);
+        $altFieldId = $findField($altFieldNames);
+
+        if ($titleFieldId === null) {
+            $this->log(sprintf(
+                '  note: no title field found in Dash (looked for: %s) — titles left as they are.'
+                . ' Set the right name under Settings → Laméco Dash.',
+                implode(', ', $titleFieldNames),
+            ));
+        }
 
         if ($altFieldId === null) {
             $this->log(sprintf(
-                '  note: no alt-text field found in Dash (looked for: %s) — alt sync skipped',
-                implode(', ', self::ALT_FIELD_NAMES),
+                '  note: no alt-text field found in Dash (looked for: %s) — alt sync skipped.'
+                . ' Set the right name under Settings → Laméco Dash.',
+                implode(', ', $altFieldNames),
             ));
         }
 

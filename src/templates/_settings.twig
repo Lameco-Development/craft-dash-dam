@@ -34,6 +34,24 @@
     required: true,
 }) }}
 
+{{ forms.textField({
+    label: 'Dash title field'|t('_craft-dash'),
+    instructions: 'Which Dash field holds the title. Dash’s own default is “Title”, but the name follows the language the account was set up in. List several, separated by commas, and the first one that exists wins. If none match, Craft titles are left alone rather than blanked.'|t('_craft-dash'),
+    id: 'titleFieldNames',
+    name: 'titleFieldNames',
+    value: settings.titleFieldNames,
+    errors: settings.getErrors('titleFieldNames'),
+}) }}
+
+{{ forms.textField({
+    label: 'Dash alt-text field'|t('_craft-dash'),
+    instructions: 'Dash ships no alt-text field, so each account creates its own and names it whatever suits. Name it here, exactly as it appears under Admin → Fields in Dash — matching ignores case. List several, separated by commas, and the first one that exists wins. If none match, no alt text is synced at all, which is what keeps an unconfigured account from writing empty values over Craft’s.'|t('_craft-dash'),
+    id: 'altFieldNames',
+    name: 'altFieldNames',
+    value: settings.altFieldNames,
+    errors: settings.getErrors('altFieldNames'),
+}) }}
+
 {{ forms.lightswitchField({
     label: 'Trash deleted assets'|t('_craft-dash'),
     instructions: 'Whether an asset deleted in Dash may be moved to Craft’s trash. An asset something still uses is never trashed either way — those are reported under Utilities → Dash. Turn this off to report every deletion and trash nothing.'|t('_craft-dash'),
