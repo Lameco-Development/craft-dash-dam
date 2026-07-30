@@ -7,8 +7,10 @@ use craft\base\Element;
 use craft\base\Event;
 use craft\elements\Asset;
 use craft\events\AuthorizationCheckEvent;
+use craft\events\DefineHtmlEvent;
 use craft\events\ModelEvent;
 use craft\events\RegisterElementSourcesEvent;
+use craft\helpers\Json;
 use craft\services\Elements;
 use lameco\dash\services\DashSync;
 use Throwable;
@@ -78,15 +80,50 @@ class ReadOnlyGuard
                     'Dash assets cannot be renamed, moved, replaced or uploaded from Craft. Make the change in Dash instead — the site follows within a few minutes.',
                 );
 
-                // Also against `filename`, because that is the input the editor typed into and
-                // the only one of these the asset editor actually renders. An error on
-                // `newLocation` alone would fail the save without saying why.
+                // Also against `newLocation`, whatever tripped the guard: that is the attribute
+                // the asset editor's Filename field reads its errors from, so this is what puts
+                // the message next to the input the editor typed into.
                 $asset->addError($attribute, $message);
-                $asset->addError('filename', $message);
+                $asset->addError('newLocation', $message);
                 $event->isValid = false;
 
                 return;
             }
+        });
+
+        // Two controls in the asset editor survive everything above, because Craft gates them
+        // on things that do not hold here. The Filename input is `'disabled' => $static`, and
+        // $static follows canSave — which has to stay true for alt text. The Edit Image button
+        // is gated on the `editImages` permission, which admins bypass.
+        //
+        // Neither has a server-side hook that can reach it while saving is allowed, so they are
+        // taken out of the page here. This is presentation only: the real enforcement is the
+        // before-save guard above, which refuses the write whatever the markup says.
+        Event::on(Asset::class, Element::EVENT_DEFINE_META_FIELDS_HTML, static function(DefineHtmlEvent $event) {
+            if (!self::isDashAsset($event->sender)) {
+                return;
+            }
+
+            $hint = Json::encode(Craft::t(
+                '_craft-dash',
+                'Managed in Dash. Rename the file there and the site follows within a few minutes.',
+            ));
+
+            // Fires while the editor sidebar renders, which is where both controls live. Craft
+            // registers its own JS from this same path.
+            Craft::$app->getView()->registerJs(<<<JS
+(() => {
+    const filename = document.querySelector('[name="newFilename"], #new-filename');
+
+    if (filename) {
+        filename.readOnly = true;
+        filename.setAttribute('title', $hint);
+    }
+
+    // Stable class from Craft's own markup, so this does not depend on the button's label.
+    document.querySelectorAll('.edit-btn').forEach((button) => button.remove());
+})();
+JS);
         });
 
         Event::on(Asset::class, Element::EVENT_REGISTER_SOURCES, static function(RegisterElementSourcesEvent $event) {
