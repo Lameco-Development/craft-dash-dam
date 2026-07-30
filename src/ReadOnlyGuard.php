@@ -104,21 +104,60 @@ class ReadOnlyGuard
                 return;
             }
 
-            $hint = Json::encode(Craft::t(
+            $filenameHint = Json::encode(Craft::t(
                 '_craft-dash',
                 'Managed in Dash. Rename the file there and the site follows within a few minutes.',
+            ));
+            $titleHint = Json::encode(Craft::t(
+                '_craft-dash',
+                'Managed in Dash. Change the title there and the site follows within a few minutes.',
             ));
 
             // Fires while the editor sidebar renders, which is where both controls live. Craft
             // registers its own JS from this same path.
+            $badge = Json::encode(Craft::t('app', 'Read Only'));
+
             Craft::$app->getView()->registerJs(<<<JS
 (() => {
-    const filename = document.querySelector('[name="newFilename"], #new-filename');
+    // Craft's own badge markup and class, so it picks up the control panel's styling and the
+    // editor's language rather than looking bolted on. Craft renders this from \$static, which
+    // cannot be true here — saving has to stay possible for the alt text field.
+    const markReadOnly = (input, hint, disable) => {
+        if (!input) {
+            return;
+        }
 
-    if (filename) {
-        filename.readOnly = true;
-        filename.setAttribute('title', $hint);
-    }
+        if (disable) {
+            // Disabled rather than readonly: readonly still looks like an editable input, and
+            // still posts its value. Disabled is what Craft's own static rendering uses, and the
+            // browser leaves the field out of the request entirely — nothing to refuse.
+            input.disabled = true;
+        }
+
+        input.setAttribute('title', hint);
+
+        const heading = input.closest('.field')?.querySelector('.heading');
+
+        if (!heading || heading.querySelector('.read-only-badge')) {
+            return;
+        }
+
+        const span = document.createElement('span');
+        span.className = 'read-only-badge';
+        span.textContent = $badge;
+
+        // Before the spacer, which is where Craft puts it — appending after would push the badge
+        // to the far right, away from the label it describes.
+        const spacer = heading.querySelector('.flex-grow');
+        spacer ? heading.insertBefore(span, spacer) : heading.appendChild(span);
+    };
+
+    markReadOnly(document.querySelector('[name="newFilename"], #new-filename'), $filenameHint, true);
+
+    // Title only gets the badge. It is already non-editable from the field layout's own readonly
+    // flag, and it must keep posting its value — the attribute is required, and a disabled input
+    // would be left out of the request and fail validation on save.
+    markReadOnly(document.querySelector('#title, [name="title"]'), $titleHint, false);
 
     // Stable class from Craft's own markup, so this does not depend on the button's label.
     document.querySelectorAll('.edit-btn').forEach((button) => button.remove());
