@@ -29,7 +29,7 @@ class ConfigController extends Controller
         Craft::$app->getQueue()->push(new SyncJob(['force' => true]));
 
         Craft::$app->getSession()->setNotice(Craft::t(
-            '_craft-dash',
+            'dash-dam',
             'Syncing with Dash. Reload this page once the job has finished to see the result.',
         ));
 
@@ -49,7 +49,7 @@ class ConfigController extends Controller
 
         Plugin::getInstance()->getDashConfig()->setSyncFolders($folders);
 
-        Craft::$app->getSession()->setNotice(Craft::t('_craft-dash', 'Folder selection saved.'));
+        Craft::$app->getSession()->setNotice(Craft::t('dash-dam', 'Folder selection saved.'));
 
         return $this->redirectToPostedUrl();
     }

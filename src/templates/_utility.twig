@@ -3,46 +3,46 @@
 <div class="flex flex-nowrap" style="align-items: baseline; justify-content: space-between;">
     <p class="light">
         {% if lastSync %}
-            {{ 'Last verified against Dash'|t('_craft-dash') }}: {{ lastSync|datetime('short') }}
+            {{ 'Last verified against Dash'|t('dash-dam') }}: {{ lastSync|datetime('short') }}
         {% else %}
-            {{ 'Dash has never been synced on this environment.'|t('_craft-dash') }}
+            {{ 'Dash has never been synced on this environment.'|t('dash-dam') }}
         {% endif %}
     </p>
 
     <form method="post" accept-charset="UTF-8">
         {{ csrfInput() }}
-        {{ actionInput('_craft-dash/config/sync') }}
+        {{ actionInput('dash-dam/config/sync') }}
         {{ redirectInput('utilities/dash') }}
-        <button type="submit" class="btn">{{ 'Sync now'|t('_craft-dash') }}</button>
+        <button type="submit" class="btn">{{ 'Sync now'|t('dash-dam') }}</button>
     </form>
 </div>
 
 <p class="light">
-    {{ 'A sync runs automatically every few minutes, so this is only needed when you want a change from Dash straight away.'|t('_craft-dash') }}
+    {{ 'A sync runs automatically every few minutes, so this is only needed when you want a change from Dash straight away.'|t('dash-dam') }}
 </p>
 
-<h2>{{ 'Deleted in Dash, still here'|t('_craft-dash') }}</h2>
+<h2>{{ 'Deleted in Dash, still here'|t('dash-dam') }}</h2>
 
 {% if missing is empty %}
     <p class="zilch">
-        {{ 'Nothing is broken. Every asset in the Dash volume still exists in Dash.'|t('_craft-dash') }}
+        {{ 'Nothing is broken. Every asset in the Dash volume still exists in Dash.'|t('dash-dam') }}
     </p>
 {% else %}
     <p>
-        {{ 'These assets were removed from Dash but were kept in Craft, because deleting one that a page still uses would break that page. Their files are gone, so any image transform generated from them will fail.'|t('_craft-dash') }}
+        {{ 'These assets were removed from Dash but were kept in Craft, because deleting one that a page still uses would break that page. Their files are gone, so any image transform generated from them will fail.'|t('dash-dam') }}
     </p>
     <p>
-        <strong>{{ 'To resolve one'|t('_craft-dash') }}:</strong>
-        {{ 'either restore it in Dash — the next sync picks it up automatically — or replace it on the pages listed below, after which the sync removes it on its own.'|t('_craft-dash') }}
+        <strong>{{ 'To resolve one'|t('dash-dam') }}:</strong>
+        {{ 'either restore it in Dash — the next sync picks it up automatically — or replace it on the pages listed below, after which the sync removes it on its own.'|t('dash-dam') }}
     </p>
 
     <table class="data fullwidth">
         <thead>
             <tr>
-                <th>{{ 'Asset'|t('_craft-dash') }}</th>
-                <th>{{ 'Location'|t('_craft-dash') }}</th>
-                <th>{{ 'Used by'|t('_craft-dash') }}</th>
-                <th>{{ 'Gone since'|t('_craft-dash') }}</th>
+                <th>{{ 'Asset'|t('dash-dam') }}</th>
+                <th>{{ 'Location'|t('dash-dam') }}</th>
+                <th>{{ 'Used by'|t('dash-dam') }}</th>
+                <th>{{ 'Gone since'|t('dash-dam') }}</th>
             </tr>
         </thead>
         <tbody>
@@ -54,16 +54,16 @@
                         {% if asset %}
                             <a href="{{ asset.cpEditUrl }}">{{ asset.title ?: asset.filename }}</a>
                         {% else %}
-                            <span class="light">#{{ assetId }} ({{ 'no longer in Craft'|t('_craft-dash') }})</span>
+                            <span class="light">#{{ assetId }} ({{ 'no longer in Craft'|t('dash-dam') }})</span>
                         {% endif %}
                     </td>
                     <td class="light">{{ asset ? asset.path : '—' }}</td>
                     <td>
                         {% set used = uses[assetId] ?? 0 %}
                         {% if used > 0 %}
-                            {{ '{n, plural, =1{1 element} other{# elements}}'|t('_craft-dash', { n: used }) }}
+                            {{ '{n, plural, =1{1 element} other{# elements}}'|t('dash-dam', { n: used }) }}
                         {% else %}
-                            <span class="light">{{ 'nothing'|t('_craft-dash') }}</span>
+                            <span class="light">{{ 'nothing'|t('dash-dam') }}</span>
                         {% endif %}
                     </td>
                     <td class="light">{{ missingSince|datetime('short') }}</td>
@@ -75,26 +75,26 @@
 
 <hr>
 
-<h2>{{ 'Synced folders'|t('_craft-dash') }}</h2>
+<h2>{{ 'Synced folders'|t('dash-dam') }}</h2>
 
 {% if availableFolders is null %}
     <p class="error">
-        {{ 'Could not reach Dash to list the folders. The selection below is unchanged; try again once Dash is reachable.'|t('_craft-dash') }}
+        {{ 'Could not reach Dash to list the folders. The selection below is unchanged; try again once Dash is reachable.'|t('dash-dam') }}
     </p>
 {% elseif availableFolders is empty %}
-    <p class="zilch">{{ 'Dash reports no folders on this account.'|t('_craft-dash') }}</p>
+    <p class="zilch">{{ 'Dash reports no folders on this account.'|t('dash-dam') }}</p>
 {% else %}
     <form method="post" accept-charset="UTF-8">
         {{ csrfInput() }}
-        {{ actionInput('_craft-dash/config/save-folders') }}
+        {{ actionInput('dash-dam/config/save-folders') }}
         {{ redirectInput('utilities/dash') }}
 
         <p>
-            {{ 'Choose which Dash folders are synced into Craft. Selecting a folder includes everything filed beneath it. With nothing selected, every folder is synced.'|t('_craft-dash') }}
+            {{ 'Choose which Dash folders are synced into Craft. Selecting a folder includes everything filed beneath it. With nothing selected, every folder is synced.'|t('dash-dam') }}
         </p>
 
         {{ forms.checkboxSelectField({
-            label: 'Folders'|t('_craft-dash'),
+            label: 'Folders'|t('dash-dam'),
             name: 'syncFolders',
             options: availableFolders|map(path => { label: path, value: path }),
             values: syncFolders,
@@ -102,11 +102,11 @@
         }) }}
 
         <p class="light">
-            {{ 'Removing a folder here does not delete anything. Assets already in Craft from that folder are left exactly as they are — they simply stop being kept up to date.'|t('_craft-dash') }}
+            {{ 'Removing a folder here does not delete anything. Assets already in Craft from that folder are left exactly as they are — they simply stop being kept up to date.'|t('dash-dam') }}
         </p>
 
         <div class="buttons">
-            <button type="submit" class="btn submit">{{ 'Save'|t('_craft-dash') }}</button>
+            <button type="submit" class="btn submit">{{ 'Save'|t('dash-dam') }}</button>
         </div>
     </form>
 {% endif %}

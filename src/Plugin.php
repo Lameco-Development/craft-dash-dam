@@ -83,9 +83,8 @@ class Plugin extends BasePlugin
 
         ReadOnlyGuard::register();
 
-        // The handle is `_craft-dash`, so the route Craft resolves on its own would be
-        // `_craft-dash/dash/sync`. Cron runs this every few minutes, so it gets a name
-        // worth typing.
+        // The route Craft resolves on its own would be `dash-dam/dash/sync`. Cron runs
+        // this every few minutes, so it gets a name worth typing.
         if (Craft::$app->getRequest()->getIsConsoleRequest()) {
             Craft::$app->controllerMap['dash'] = DashController::class;
         }
@@ -98,7 +97,7 @@ class Plugin extends BasePlugin
 
     protected function settingsHtml(): ?string
     {
-        return Craft::$app->getView()->renderTemplate('_craft-dash/_settings', [
+        return Craft::$app->getView()->renderTemplate('dash-dam/_settings', [
             'plugin' => $this,
             'settings' => $this->getSettings(),
         ]);

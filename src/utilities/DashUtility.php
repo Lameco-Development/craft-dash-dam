@@ -27,7 +27,7 @@ class DashUtility extends Utility
 
     public static function displayName(): string
     {
-        return Craft::t('_craft-dash', 'Dash');
+        return Craft::t('dash-dam', 'Dash');
     }
 
     public static function icon(): ?string
@@ -62,7 +62,7 @@ class DashUtility extends Utility
             $uses = $sync->usageCounts(array_keys($missing));
         }
 
-        return Craft::$app->getView()->renderTemplate('_craft-dash/_utility', [
+        return Craft::$app->getView()->renderTemplate('dash-dam/_utility', [
             'missing' => $missing,
             'assets' => $assets,
             'uses' => $uses,

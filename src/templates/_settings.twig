@@ -1,27 +1,27 @@
 {% import '_includes/forms.twig' as forms %}
 
 <p class="light">
-    {{ 'Credentials are read from `.env`, not from here — project config is committed, and secrets must not be. Which Dash folders are synced is set by the client under Utilities → Dash, so a deploy cannot revert their choice.'|t('_craft-dash') }}
+    {{ 'Credentials are read from `.env`, not from here — project config is committed, and secrets must not be. Which Dash folders are synced is set by the client under Utilities → Dash, so a deploy cannot revert their choice.'|t('dash-dam') }}
 </p>
 
 {{ forms.textField({
-    label: 'Full reconcile interval'|t('_craft-dash'),
-    instructions: 'Minutes before the cheap probe is no longer trusted and a full pass runs anyway. This is the only thing that notices a file replaced in Dash under the same name, because a replacement inherits its original upload date and never enters the “changed since” window.'|t('_craft-dash'),
+    label: 'Full reconcile interval'|t('dash-dam'),
+    instructions: 'Minutes before the cheap probe is no longer trusted and a full pass runs anyway. This is the only thing that notices a file replaced in Dash under the same name, because a replacement inherits its original upload date and never enters the “changed since” window.'|t('dash-dam'),
     id: 'fullReconcileMinutes',
     name: 'fullReconcileMinutes',
     type: 'number',
     min: 1,
     step: 1,
     size: 6,
-    unit: 'minutes'|t('_craft-dash'),
+    unit: 'minutes'|t('dash-dam'),
     value: settings.fullReconcileMinutes,
     errors: settings.getErrors('fullReconcileMinutes'),
     required: true,
 }) }}
 
 {{ forms.textField({
-    label: 'Maximum orphan share'|t('_craft-dash'),
-    instructions: 'Between 0 and 1. If a larger share of mapped assets stops coming back from Dash in one run, the whole reconcile is refused and nothing is changed — an unshared folder or a partial API response looks exactly like a bulk deletion from here. Set to 1 to disable the check.'|t('_craft-dash'),
+    label: 'Maximum orphan share'|t('dash-dam'),
+    instructions: 'Between 0 and 1. If a larger share of mapped assets stops coming back from Dash in one run, the whole reconcile is refused and nothing is changed — an unshared folder or a partial API response looks exactly like a bulk deletion from here. Set to 1 to disable the check.'|t('dash-dam'),
     id: 'maxOrphanShare',
     name: 'maxOrphanShare',
     type: 'number',
@@ -35,8 +35,8 @@
 }) }}
 
 {{ forms.textField({
-    label: 'Dash title field'|t('_craft-dash'),
-    instructions: 'Which Dash field holds the title. Dash’s own default is “Title”, but the name follows the language the account was set up in. List several, separated by commas, and the first one that exists wins. If none match, Craft titles are left alone rather than blanked.'|t('_craft-dash'),
+    label: 'Dash title field'|t('dash-dam'),
+    instructions: 'Which Dash field holds the title. Dash’s own default is “Title”, but the name follows the language the account was set up in. List several, separated by commas, and the first one that exists wins. If none match, Craft titles are left alone rather than blanked.'|t('dash-dam'),
     id: 'titleFieldNames',
     name: 'titleFieldNames',
     value: settings.titleFieldNames,
@@ -44,8 +44,8 @@
 }) }}
 
 {{ forms.textField({
-    label: 'Dash alt-text field'|t('_craft-dash'),
-    instructions: 'Dash ships no alt-text field, so each account creates its own and names it whatever suits. Name it here, exactly as it appears under Admin → Fields in Dash — matching ignores case. List several, separated by commas, and the first one that exists wins. If none match, no alt text is synced at all, which is what keeps an unconfigured account from writing empty values over Craft’s.'|t('_craft-dash'),
+    label: 'Dash alt-text field'|t('dash-dam'),
+    instructions: 'Dash ships no alt-text field, so each account creates its own and names it whatever suits. Name it here, exactly as it appears under Admin → Fields in Dash — matching ignores case. List several, separated by commas, and the first one that exists wins. If none match, no alt text is synced at all, which is what keeps an unconfigured account from writing empty values over Craft’s.'|t('dash-dam'),
     id: 'altFieldNames',
     name: 'altFieldNames',
     value: settings.altFieldNames,
@@ -53,8 +53,8 @@
 }) }}
 
 {{ forms.lightswitchField({
-    label: 'Trash deleted assets'|t('_craft-dash'),
-    instructions: 'Whether an asset deleted in Dash may be moved to Craft’s trash. An asset something still uses is never trashed either way — those are reported under Utilities → Dash. Turn this off to report every deletion and trash nothing.'|t('_craft-dash'),
+    label: 'Trash deleted assets'|t('dash-dam'),
+    instructions: 'Whether an asset deleted in Dash may be moved to Craft’s trash. An asset something still uses is never trashed either way — those are reported under Utilities → Dash. Turn this off to report every deletion and trash nothing.'|t('dash-dam'),
     id: 'trashOrphans',
     name: 'trashOrphans',
     on: settings.trashOrphans,
