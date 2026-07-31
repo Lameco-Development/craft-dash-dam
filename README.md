@@ -100,7 +100,8 @@ handle.
 ### 4. Pick folders and run the first sync
 
 Under **Utilities → Dash**, choose which Dash folders are synced. Selecting a folder
-includes everything filed beneath it; with nothing selected, every folder is synced. Then:
+includes everything filed beneath it; with nothing selected, nothing is synced and the
+sync refuses to run. Then:
 
 ```bash
 php craft dash/sync
