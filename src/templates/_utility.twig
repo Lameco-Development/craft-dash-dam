@@ -1,5 +1,11 @@
 {% import '_includes/forms.twig' as forms %}
 
+{% if syncFolders is empty %}
+    <p class="warning with-icon">
+        {{ 'No folders are selected yet, so nothing is synced. Choose which Dash folders belong in Craft under “Synced folders” below and save.'|t('dash-dam') }}
+    </p>
+{% endif %}
+
 <div class="flex flex-nowrap" style="align-items: baseline; justify-content: space-between;">
     <p class="light">
         {% if lastSync %}
