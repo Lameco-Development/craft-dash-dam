@@ -26,6 +26,17 @@ class ConfigController extends Controller
         $this->requirePostRequest();
         $this->requirePermission('utility:' . DashUtility::id());
 
+        // Refused here instead of letting the queued job fail: the person clicking the
+        // button is looking at the page that can fix it, not at the queue.
+        if (Plugin::getInstance()->getDashConfig()->syncFolders() === []) {
+            Craft::$app->getSession()->setError(Craft::t(
+                'dash-dam',
+                'Nothing was synced: no folders are selected. Choose folders below and save the selection first.',
+            ));
+
+            return $this->redirectToPostedUrl();
+        }
+
         Craft::$app->getQueue()->push(new SyncJob(['force' => true]));
 
         Craft::$app->getSession()->setNotice(Craft::t(
