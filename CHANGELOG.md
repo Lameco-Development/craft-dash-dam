@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/Lameco-Development/craft-dash-dam/compare/1.0.1...1.0.2) (2026-07-31)
+
+
+### Bug Fixes
+
+* surface the empty-selection state on the utility page ([#16](https://github.com/Lameco-Development/craft-dash-dam/issues/16)) ([9a719bb](https://github.com/Lameco-Development/craft-dash-dam/commit/9a719bbd06c9a61cf7889060f7c873b3ac0f68b0))
+
 ## [1.0.1](https://github.com/Lameco-Development/craft-dash-dam/compare/1.0.0...1.0.1) (2026-07-31)
 
 
