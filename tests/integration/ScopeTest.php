@@ -2,12 +2,23 @@
 
 namespace lameco\dash\tests\integration;
 
+use lameco\dash\errors\DashApiException;
+
 /**
  * The folder selection scopes what is synced — and narrowing it must never read as
  * deletion.
  */
 final class ScopeTest extends IntegrationTestCase
 {
+    public function testEmptySelectionRefusesToSync(): void
+    {
+        $this->dashConfig()->setSyncFolders([]);
+
+        $this->expectException(DashApiException::class);
+        $this->expectExceptionMessageMatches('/No folders are selected/');
+        $this->reconcile();
+    }
+
     public function testColdSyncWithSelectionOnlyCreatesInScopeAssets(): void
     {
         $this->dashConfig()->setSyncFolders(['Beeldbank']);
