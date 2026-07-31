@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/Lameco-Development/craft-dash-dam/compare/1.0.0...1.0.1) (2026-07-31)
+
+
+### Bug Fixes
+
+* refuse to sync when no folders are selected ([#14](https://github.com/Lameco-Development/craft-dash-dam/issues/14)) ([316350e](https://github.com/Lameco-Development/craft-dash-dam/commit/316350ee4b57e4f09424551d125c74939786a2db))
+
 ## 1.0.0 (2026-07-31)
 
 
