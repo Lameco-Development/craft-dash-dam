@@ -30,6 +30,11 @@ abstract class IntegrationTestCase extends TestCase
         CraftHarness::injectDashApi($this->dash);
 
         $this->transaction = Craft::$app->getDb()->beginTransaction();
+
+        // The default tenant's every folder, Unfiled included — the baseline the suite was
+        // written against. Inside the transaction, so tests that narrow or empty the
+        // selection start from the same clean slate. An empty selection refuses to sync.
+        $this->dashConfig()->setSyncFolders(['Archief', 'Beeldbank', 'Corporate', 'Unfiled']);
     }
 
     protected function tearDown(): void

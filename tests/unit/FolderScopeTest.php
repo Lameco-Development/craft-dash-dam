@@ -7,10 +7,10 @@ use PHPUnit\Framework\TestCase;
 
 final class FolderScopeTest extends TestCase
 {
-    public function testEmptySelectionIncludesEverything(): void
+    public function testEmptySelectionIncludesNothing(): void
     {
-        self::assertTrue(FolderScope::includes([], 'Beeldbank'));
-        self::assertTrue(FolderScope::includes([], 'Unfiled'));
+        self::assertFalse(FolderScope::includes([], 'Beeldbank'));
+        self::assertFalse(FolderScope::includes([], 'Unfiled'));
     }
 
     public function testExactMatchIsIncluded(): void

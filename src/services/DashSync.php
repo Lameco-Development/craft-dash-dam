@@ -216,6 +216,13 @@ class DashSync extends Component
     public function reconcile(): array
     {
         $volume = DashVolumes::single();
+
+        // Same reasoning as the volume check above: an unconfigured install must say what
+        // to fix, not quietly decide that "nothing selected" means the entire library.
+        if (Plugin::getInstance()->getDashConfig()->syncFolders() === []) {
+            throw new DashApiException('No folders are selected for sync. Nothing is synced until folders are chosen in the Dash utility.');
+        }
+
         $db = Craft::$app->getDb();
         [
             'assets' => $dash,
