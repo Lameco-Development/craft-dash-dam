@@ -4,7 +4,6 @@
  * Keys are the English source strings, kept in alphabetical order.
  */
 return [
-    'A sync runs automatically every few minutes, so this is only needed when you want a change from Dash straight away.' => 'Er draait automatisch elke paar minuten een synchronisatie, dus dit is alleen nodig wanneer je een wijziging uit Dash meteen wilt zien.',
     'Asset' => 'Bestand',
     'Between 0 and 1. If a larger share of mapped assets stops coming back from Dash in one run, the whole reconcile is refused and nothing is changed — an unshared folder or a partial API response looks exactly like a bulk deletion from here. Set to 1 to disable the check.' => 'Tussen 0 en 1. Wanneer een groter aandeel van de gekoppelde bestanden in één run niet meer uit Dash terugkomt, wordt de hele afstemming geweigerd en verandert er niets — een niet langer gedeelde map of een onvolledig API-antwoord is van hieruit niet te onderscheiden van een bulkverwijdering. Zet dit op 1 om de controle uit te schakelen.',
     'Choose which Dash folders are synced into Craft. Selecting a folder includes everything filed beneath it. With nothing selected, nothing is synced.' => 'Kies welke Dash-mappen naar Craft worden gesynchroniseerd. Een geselecteerde map omvat alles wat eronder is opgeborgen. Zonder selectie wordt er niets gesynchroniseerd.',
@@ -52,6 +51,7 @@ return [
     'To resolve one' => 'Zo los je er een op',
     'Transform batch size' => 'Batchgrootte voor transformaties',
     'Trash deleted assets' => 'Verwijderde bestanden naar de prullenbak',
+    'Use this when you want a change from Dash straight away. Otherwise changes are picked up automatically, on the schedule set for this site.' => 'Gebruik dit wanneer je een wijziging uit Dash meteen wilt zien. Verder worden wijzigingen automatisch opgepikt, volgens het schema dat voor deze site is ingesteld.',
     'Used by' => 'Gebruikt door',
     'Where Dash sends the browser back after authorising. It must exactly match a callback URL registered on the Dash API client — matching includes the path. When the variable is unset, the primary site’s origin is used.' => 'Waar Dash de browser na het autoriseren naartoe terugstuurt. Dit moet exact overeenkomen met een callback-URL die op de Dash-API-client is geregistreerd — inclusief het pad. Wanneer de variabele niet is gezet, wordt de origin van de primaire site gebruikt.',
     'Whether an asset deleted in Dash may be moved to Craft’s trash. An asset something still uses is never trashed either way — those are reported under Utilities → Dash. Turn this off to report every deletion and trash nothing.' => 'Of een bestand dat in Dash is verwijderd naar de prullenbak van Craft mag worden verplaatst. Een bestand dat ergens nog wordt gebruikt gaat hoe dan ook nooit de prullenbak in — die worden gemeld onder Hulpprogramma’s → Dash. Zet dit uit om elke verwijdering te melden en niets weg te gooien.',
