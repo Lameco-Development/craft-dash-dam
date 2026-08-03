@@ -149,6 +149,7 @@ class DashFs extends Fs
             $files[$path] = [
                 'assetId' => $asset['id'] ?? null,
                 'size' => (int)($file['size'] ?? 0),
+                'checksum' => $file['checksum'] ?? null,
                 'previewUrl' => $file['previewUrl'] ?? null,
                 'dateModified' => strtotime($asset['dateLastModified'] ?? $file['dateAdded'] ?? 'now'),
                 'folderCount' => count($candidates),
@@ -257,6 +258,7 @@ class DashFs extends Fs
         }
 
         $contents = $this->api()->fetch($entry['previewUrl']);
+        $this->verifyOriginal($path, $entry['checksum'] ?? null, $contents);
 
         // Opt-in transfer log. Keeping this is deliberate: how much a sync actually
         // pulls is the difference between a viable integration and an unviable one at
@@ -266,6 +268,34 @@ class DashFs extends Fs
         }
 
         return $contents;
+    }
+
+    /**
+     * Dash names this endpoint a preview, and for images it serves the original byte for
+     * byte — checked against this checksum on the whole library, up to 20 MB. Its own docs
+     * describe an animated preview for video, so for some file type that will stop being
+     * true, and the failure is otherwise silent: bytes still arrive, and Craft stores them
+     * under the right filename as if they were the source.
+     *
+     * Enforced only for a plain 32-character md5, which is what Dash returns today. Were it
+     * to move to another digest — a multipart ETag, say — that has to read as "cannot
+     * verify" rather than take every image on the site down.
+     */
+    private function verifyOriginal(string $path, ?string $checksum, string $contents): void
+    {
+        if ($checksum === null || preg_match('/^[a-f0-9]{32}$/i', $checksum) !== 1) {
+            return;
+        }
+
+        if (strcasecmp(md5($contents), $checksum) === 0) {
+            return;
+        }
+
+        throw new FsException(sprintf(
+            "Dash served %d bytes for '%s' that are not the original: the checksum does not match.",
+            strlen($contents),
+            $path,
+        ));
     }
 
     private function api(): DashApi

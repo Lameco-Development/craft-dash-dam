@@ -68,6 +68,12 @@ final class FakeDashApi extends DashApi
     {
         $this->fetchCalls++;
 
+        return self::bodyFor($url);
+    }
+
+    /** Exposed so a test can state what the checksum of the served bytes ought to be. */
+    public static function bodyFor(string $url): string
+    {
         return "fake-bytes-for-{$url}";
     }
 
