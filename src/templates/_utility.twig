@@ -67,7 +67,11 @@
                     <td class="light">{{ asset ? asset.path : '—' }}</td>
                     <td>
                         {% if owners is empty %}
-                            <span class="light">{{ 'nothing'|t('dash-dam') }}</span>
+                            <span class="light">
+                                {{- trashOrphans
+                                    ? 'no longer used, clears at the next sync'|t('dash-dam')
+                                    : 'nothing'|t('dash-dam') -}}
+                            </span>
                         {% else %}
                             {%- for owner in owners|slice(0, 5) -%}
                                 {%- if not loop.first %}, {% endif -%}

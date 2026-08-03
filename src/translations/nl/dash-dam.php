@@ -60,6 +60,7 @@ return [
     'assets' => 'bestanden',
     'minutes' => 'minuten',
     'no longer in Craft' => 'niet meer in Craft',
+    'no longer used, clears at the next sync' => 'wordt niet meer gebruikt, verdwijnt bij de volgende synchronisatie',
     'nothing' => 'niets',
     'put it back in Dash and the next sync restores it, or swap it out on the pages listed here and the sync clears it away by itself.' => 'zet het terug in Dash, dan herstelt de volgende synchronisatie het, of vervang het op de pagina’s die hier staan, dan ruimt de synchronisatie het vanzelf op.',
 ];

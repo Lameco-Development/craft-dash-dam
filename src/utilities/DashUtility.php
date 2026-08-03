@@ -66,6 +66,9 @@ class DashUtility extends Utility
             'missing' => $missing,
             'assets' => $assets,
             'usedBy' => $usedBy,
+            // Decides what an empty "Used by" means: with trashing on, the sync is about to
+            // clear the row by itself; with it off, the row is the whole point and stays.
+            'trashOrphans' => $plugin->getSettings()->trashOrphans,
             'lastSync' => $sync->lastSync(),
             'availableFolders' => $config->availableFolders(),
             'syncFolders' => $config->syncFolders(),
