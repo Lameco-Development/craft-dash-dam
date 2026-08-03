@@ -3,6 +3,7 @@
 namespace lameco\dash\services;
 
 use Craft;
+use craft\base\ElementInterface;
 use craft\elements\Asset;
 use craft\helpers\Assets;
 use craft\helpers\Db;
@@ -1014,6 +1015,51 @@ class DashSync extends Component
         )->queryAll();
 
         return array_column($rows, 'uses', 'targetId');
+    }
+
+    /**
+     * What an editor has to open to replace each asset: the top-level owner of every
+     * relation, deduplicated.
+     *
+     * Relations point at whatever holds the Assets field, which for a page builder is a
+     * nested entry rather than the page. Linking an editor to a Matrix block is no more
+     * use than the bare count was, so each one is walked up to its root owner. That also
+     * makes the number honest: the same image used in three blocks of one page is one
+     * thing to fix, and a page related on two sites is still one page.
+     *
+     * @param int[] $assetIds
+     * @return array<int, ElementInterface[]> assetId => owning elements
+     */
+    public function usedBy(array $assetIds): array
+    {
+        if ($assetIds === []) {
+            return [];
+        }
+
+        $rows = Craft::$app->getDb()->createCommand(
+            'SELECT DISTINCT targetId, sourceId FROM {{%relations}} WHERE targetId IN ('
+            . implode(',', array_map('intval', $assetIds)) . ')',
+        )->queryAll();
+
+        $owners = [];
+        $byAsset = [];
+
+        foreach ($rows as $row) {
+            $sourceId = (int)$row['sourceId'];
+
+            // Memoised across assets, because one block can hold several of them.
+            if (!array_key_exists($sourceId, $owners)) {
+                $source = Craft::$app->getElements()->getElementById($sourceId, null, null, ['status' => null]);
+                // A relation can outlive what it points at; there is nothing to link to then.
+                $owners[$sourceId] = $source?->getRootOwner();
+            }
+
+            if ($owners[$sourceId] !== null) {
+                $byAsset[(int)$row['targetId']][$owners[$sourceId]->id] = $owners[$sourceId];
+            }
+        }
+
+        return array_map('array_values', $byAsset);
     }
 
     /**

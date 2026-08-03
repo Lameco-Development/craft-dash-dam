@@ -27,7 +27,7 @@ class DashUtility extends Utility
 
     public static function displayName(): string
     {
-        return Craft::t('dash-dam', 'Dash');
+        return Craft::t('dash-dam', 'Dash DAM');
     }
 
     public static function icon(): ?string
@@ -55,17 +55,20 @@ class DashUtility extends Utility
         $config = $plugin->getDashConfig();
         $missing = $sync->missingAssets();
         $assets = [];
-        $uses = [];
+        $usedBy = [];
 
         if ($missing !== []) {
             $assets = Asset::find()->id(array_keys($missing))->status(null)->indexBy('id')->all();
-            $uses = $sync->usageCounts(array_keys($missing));
+            $usedBy = $sync->usedBy(array_keys($missing));
         }
 
         return Craft::$app->getView()->renderTemplate('dash-dam/_utility', [
             'missing' => $missing,
             'assets' => $assets,
-            'uses' => $uses,
+            'usedBy' => $usedBy,
+            // Decides what an empty "Used by" means: with trashing on, the sync is about to
+            // clear the row by itself; with it off, the row is the whole point and stays.
+            'trashOrphans' => $plugin->getSettings()->trashOrphans,
             'lastSync' => $sync->lastSync(),
             'availableFolders' => $config->availableFolders(),
             'syncFolders' => $config->syncFolders(),

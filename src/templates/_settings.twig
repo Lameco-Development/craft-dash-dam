@@ -1,7 +1,7 @@
 {% import '_includes/forms.twig' as forms %}
 
 <p class="light">
-    {{ 'The credential settings hold references to environment variables, resolved when the plugin talks to Dash. Never paste a secret in directly — these settings are committed to project config, and secrets must not be. Which Dash folders are synced is set by the client under Utilities → Dash, so a deploy cannot revert their choice.'|t('dash-dam') }}
+    {{ 'The credential settings hold references to environment variables, resolved when the plugin talks to Dash. Never paste a secret in directly — these settings are committed to project config, and secrets must not be. Which Dash folders are synced is set by the client under Utilities → Dash DAM, so a deploy cannot revert their choice.'|t('dash-dam') }}
 </p>
 
 {{ forms.autosuggestField({
@@ -121,7 +121,7 @@
 
 {{ forms.lightswitchField({
     label: 'Trash deleted assets'|t('dash-dam'),
-    instructions: 'Whether an asset deleted in Dash may be moved to Craft’s trash. An asset something still uses is never trashed either way — those are reported under Utilities → Dash. Turn this off to report every deletion and trash nothing.'|t('dash-dam'),
+    instructions: 'Whether an asset deleted in Dash may be moved to Craft’s trash. An asset something still uses is never trashed either way — those are reported under Utilities → Dash DAM. Turn this off to report every deletion and trash nothing.'|t('dash-dam'),
     id: 'trashOrphans',
     name: 'trashOrphans',
     on: settings.trashOrphans,

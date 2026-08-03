@@ -2,7 +2,7 @@
 
 {% if syncFolders is empty %}
     <p class="warning with-icon">
-        {{ 'No folders are selected yet, so nothing is synced. Choose which Dash folders belong in Craft under “Synced folders” below and save.'|t('dash-dam') }}
+        {{ 'Nothing is being synced yet. Pick the Dash folders that belong in Craft under “Synced folders” below, then save.'|t('dash-dam') }}
     </p>
 {% endif %}
 
@@ -11,7 +11,7 @@
         {% if lastSync %}
             {{ 'Last verified against Dash'|t('dash-dam') }}: {{ lastSync|datetime('short') }}
         {% else %}
-            {{ 'Dash has never been synced on this environment.'|t('dash-dam') }}
+            {{ 'Dash has not been synced here yet.'|t('dash-dam') }}
         {% endif %}
     </p>
 
@@ -24,22 +24,22 @@
 </div>
 
 <p class="light">
-    {{ 'A sync runs automatically every few minutes, so this is only needed when you want a change from Dash straight away.'|t('dash-dam') }}
+    {{ 'Use this when you want a change from Dash straight away. Otherwise the site picks changes up on its own schedule.'|t('dash-dam') }}
 </p>
 
 <h2>{{ 'Deleted in Dash, still here'|t('dash-dam') }}</h2>
 
 {% if missing is empty %}
     <p class="zilch">
-        {{ 'Nothing is broken. Every asset in the Dash volume still exists in Dash.'|t('dash-dam') }}
+        {{ 'Nothing is broken. Every asset here still exists in Dash.'|t('dash-dam') }}
     </p>
 {% else %}
     <p>
-        {{ 'These assets were removed from Dash but were kept in Craft, because deleting one that a page still uses would break that page. Their files are gone, so any image transform generated from them will fail.'|t('dash-dam') }}
+        {{ 'These were deleted in Dash. Craft kept them, because throwing away an asset a page still uses would break that page. The files are gone either way, so the images will not load.'|t('dash-dam') }}
     </p>
     <p>
         <strong>{{ 'To resolve one'|t('dash-dam') }}:</strong>
-        {{ 'either restore it in Dash — the next sync picks it up automatically — or replace it on the pages listed below, after which the sync removes it on its own.'|t('dash-dam') }}
+        {{ 'put it back in Dash and the next sync restores it, or swap it out on the pages listed here and the sync clears it away by itself.'|t('dash-dam') }}
     </p>
 
     <table class="data fullwidth">
@@ -54,6 +54,7 @@
         <tbody>
             {% for assetId, missingSince in missing %}
                 {% set asset = assets[assetId] ?? null %}
+                {% set owners = usedBy[assetId] ?? [] %}
                 <tr>
                     <td>
                         <span class="status red"></span>
@@ -65,11 +66,24 @@
                     </td>
                     <td class="light">{{ asset ? asset.path : '—' }}</td>
                     <td>
-                        {% set used = uses[assetId] ?? 0 %}
-                        {% if used > 0 %}
-                            {{ '{n, plural, =1{1 element} other{# elements}}'|t('dash-dam', { n: used }) }}
+                        {% if owners is empty %}
+                            <span class="light">
+                                {{- trashOrphans
+                                    ? 'no longer used, clears at the next sync'|t('dash-dam')
+                                    : 'nothing'|t('dash-dam') -}}
+                            </span>
                         {% else %}
-                            <span class="light">{{ 'nothing'|t('dash-dam') }}</span>
+                            {%- for owner in owners|slice(0, 5) -%}
+                                {%- if not loop.first %}, {% endif -%}
+                                {%- if owner.cpEditUrl -%}
+                                    <a href="{{ owner.cpEditUrl }}">{{ owner.title ?: owner.id }}</a>
+                                {%- else -%}
+                                    {{ owner.title ?: owner.id }}
+                                {%- endif -%}
+                            {%- endfor -%}
+                            {%- if owners|length > 5 %}
+                                <span class="light">{{ 'and {n} more'|t('dash-dam', { n: owners|length - 5 }) }}</span>
+                            {% endif %}
                         {% endif %}
                     </td>
                     <td class="light">{{ missingSince|datetime('short') }}</td>
@@ -85,7 +99,7 @@
 
 {% if availableFolders is null %}
     <p class="error">
-        {{ 'Could not reach Dash to list the folders. The selection below is unchanged; try again once Dash is reachable.'|t('dash-dam') }}
+        {{ 'Could not reach Dash to list the folders. Nothing has changed; try again once Dash is back.'|t('dash-dam') }}
     </p>
 {% elseif availableFolders is empty %}
     <p class="zilch">{{ 'Dash reports no folders on this account.'|t('dash-dam') }}</p>
@@ -108,7 +122,7 @@
         }) }}
 
         <p class="light">
-            {{ 'Removing a folder here does not delete anything. Assets already in Craft from that folder are left exactly as they are — they simply stop being kept up to date.'|t('dash-dam') }}
+            {{ 'Removing a folder here deletes nothing. Assets already in Craft stay exactly where they are; they just stop being updated.'|t('dash-dam') }}
         </p>
 
         <div class="buttons">
