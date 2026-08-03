@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/Lameco-Development/craft-dash-dam/compare/1.0.2...1.0.3) (2026-08-03)
+
+
+### Bug Fixes
+
+* verify a Dash preview is the original before serving it ([#20](https://github.com/Lameco-Development/craft-dash-dam/issues/20)) ([d0cdd87](https://github.com/Lameco-Development/craft-dash-dam/commit/d0cdd878ca2c87a10e0480fb0a6beedd19c4667c))
+
 ## [1.0.2](https://github.com/Lameco-Development/craft-dash-dam/compare/1.0.1...1.0.2) (2026-07-31)
 
 
