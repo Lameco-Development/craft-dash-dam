@@ -36,8 +36,9 @@ class DashConfig extends Component
     private ?array $syncFolders = null;
 
     /**
-     * Which Dash folders are synced, as full paths. An empty array means every folder —
-     * the default, so an install that never opens the form behaves as it always did.
+     * Which Dash folders are synced, as full paths. An empty array syncs nothing — see
+     * FolderScope for why — and reconcile() refuses to run at all until folders have been
+     * chosen, so a fresh install imports nothing before anyone decides what belongs in Craft.
      *
      * @return string[]
      */

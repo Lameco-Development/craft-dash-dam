@@ -551,9 +551,10 @@ class DashSync extends Component
                     $counts['restamped']++;
                 }
 
-                // The preview URL is re-signed by Dash on every search, so it is refreshed
-                // here rather than compared — the stored one is what the control panel reads,
-                // and letting it expire would leave every thumbnail broken.
+                // Dash signs these for 30 days and hands back the same URL until it re-signs,
+                // so it is stored unconditionally rather than compared — the stored one is what
+                // the control panel reads, and letting it age out would leave every thumbnail
+                // broken. Refreshing every run keeps it far from its expiry.
                 $db->createCommand()->update(
                     self::MAP_TABLE,
                     ['checksum' => $checksum, 'previewUrl' => $state['previewUrl']],
