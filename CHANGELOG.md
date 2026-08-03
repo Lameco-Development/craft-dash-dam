@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/Lameco-Development/craft-dash-dam/compare/1.0.3...1.1.0) (2026-08-03)
+
+
+### Features
+
+* name the elements using a missing asset, and clean up the utility ([#22](https://github.com/Lameco-Development/craft-dash-dam/issues/22)) ([afe7886](https://github.com/Lameco-Development/craft-dash-dam/commit/afe78861de75d625bcf89f0c259bbe16e6be6ba4))
+
 ## [1.0.3](https://github.com/Lameco-Development/craft-dash-dam/compare/1.0.2...1.0.3) (2026-08-03)
 
 
