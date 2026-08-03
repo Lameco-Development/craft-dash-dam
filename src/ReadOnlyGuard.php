@@ -75,7 +75,7 @@ class ReadOnlyGuard
 
                 $message = Craft::t(
                     'dash-dam',
-                    'Dash assets cannot be renamed, moved, replaced or uploaded from Craft. Make the change in Dash instead — the site follows within a few minutes.',
+                    'Dash assets cannot be renamed, moved, replaced or uploaded from Craft. Make the change in Dash instead and the site will follow at the next sync.',
                 );
 
                 // Also against `newLocation`, whatever tripped the guard: that is the attribute
@@ -104,11 +104,11 @@ class ReadOnlyGuard
 
             $filenameHint = Json::encode(Craft::t(
                 'dash-dam',
-                'Managed in Dash. Rename the file there and the site follows within a few minutes.',
+                'Managed in Dash. Rename the file there and the site follows at the next sync.',
             ));
             $titleHint = Json::encode(Craft::t(
                 'dash-dam',
-                'Managed in Dash. Change the title there and the site follows within a few minutes.',
+                'Managed in Dash. Change the title there and the site follows at the next sync.',
             ));
 
             // Fires while the editor sidebar renders, which is where both controls live. Craft
