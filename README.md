@@ -97,6 +97,22 @@ In this order, because each step selects the previous one:
 Name the volume whatever you like — the plugin finds it by its filesystem type, not by its
 handle.
 
+Then, per user group that works with these images (**Settings → Users → Groups**, under
+*Volume – &lt;your volume&gt;*):
+
+| Permission | Why |
+|---|---|
+| View assets | See them in fields and the asset index. |
+| View assets uploaded by other users → **Save assets uploaded by other users** | Author **alt text**. Synced assets have no uploader, so the peer variant is the one that applies — the non-peer *Save assets* never matches. |
+| **Edit images** + View assets uploaded by other users → **Edit images uploaded by other users** | Set a **focal point**. Both are required, for the same reason. |
+
+Alt text and focal point are the two things Dash cannot express, so they are authored in
+Craft and are the only edits the volume accepts. Everything else the control panel offers —
+upload, rename, move, replace, delete, and the image editor's crop, rotate and flip — is
+refused whatever the permissions say, because the filesystem is read-only and the path is
+the identity the sync maps on. Leave *Save assets*, *Delete assets*, *Replace files* and
+*Create subfolders* off; granting them only produces errors.
+
 ### 4. Pick folders and run the first sync
 
 Under **Utilities → Dash**, choose which Dash folders are synced. Selecting a folder
@@ -205,6 +221,11 @@ It trashes the volume's assets, drops the mappings and clears the watermark — 
 folder selection, which is configuration rather than synced state. Assets are trashed, not
 erased, so a reset against the wrong environment is recoverable. It lists anything still in
 use before asking, and refuses to run non-interactively unless given `--force`.
+
+What a reset does *not* survive is the alt text and focal points authored in Craft: a later
+sync builds new elements, and Dash holds neither value to restore them from. The same is
+true of an asset deleted in Dash and later restored there. Both are only worth the trouble
+of re-authoring, so treat a reset as losing them.
 
 Do **not** use `sync --allowMassDeletion` for this. That flag is for a deletion that genuinely
 happened in Dash; against a tenant switch it would trash the assets rather than forget them.

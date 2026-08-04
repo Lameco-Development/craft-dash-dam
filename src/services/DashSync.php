@@ -252,7 +252,7 @@ class DashSync extends Component
         $this->refuseMassDisappearance($byAssetId, $allIds);
 
         $counts = ['adopted' => 0, 'unmatched' => 0, 'created' => 0, 'moved' => 0, 'retitled' => 0,
-            'altSynced' => 0, 'resized' => 0, 'restamped' => 0, 'trashed' => 0, 'inUse' => 0, 'returned' => 0,
+            'altSynced' => 0, 'resized' => 0, 'restamped' => 0, 'reframed' => 0, 'trashed' => 0, 'inUse' => 0, 'returned' => 0,
             'outOfScope' => 0, 'failed' => 0, 'skippedUnsupported' => array_sum($skippedByType), ];
 
         $this->adoptUnmapped($volume, $dash, $byAssetId, $counts);
@@ -550,6 +550,17 @@ class DashSync extends Component
                     Craft::$app->getImageTransforms()->deleteAllTransformData($asset);
                     $this->log("  RESTAMPED #{$assetId}  content changed — transforms invalidated");
                     $counts['restamped']++;
+                }
+
+                // A focal point is a relative coordinate, so it survives a replacement or a
+                // reshape untouched and goes on pointing at the same *fraction* of the image. If
+                // the new version was re-cropped or re-framed, that fraction is now a different
+                // part of the picture, and every transform silently regenerates around the wrong
+                // spot. Nothing else can tell — Dash has no focal point to compare against — so
+                // this reports it and leaves the value alone for a person to judge.
+                if (($contentChanged || $dimsChanged) && $asset->getHasFocalPoint()) {
+                    $this->log("  REFRAME? #{$assetId}  {$current}  — image changed, its focal point may no longer match");
+                    $counts['reframed']++;
                 }
 
                 // Dash signs these for 30 days and hands back the same URL until it re-signs,
