@@ -126,6 +126,16 @@ final class FakeDashApi extends DashApi
     }
 
     /**
+     * Stands in for an asset that used to be syncable and no longer is — what upgrading
+     * past a narrowed SUPPORTED_FILE_TYPES looks like from Craft's side.
+     */
+    public function changeFileType(string $dashId, string $fileType): void
+    {
+        $asset = &$this->findAsset($dashId);
+        $asset['currentAssetFile']['fileType'] = $fileType;
+    }
+
+    /**
      * @param array<string, mixed> $wireAsset an asset in Dash's search-result shape
      */
     public function addAsset(array $wireAsset): void

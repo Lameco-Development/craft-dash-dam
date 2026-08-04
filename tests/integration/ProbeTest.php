@@ -18,8 +18,9 @@ final class ProbeTest extends IntegrationTestCase
 
         $probe = $this->sync()->probe();
         self::assertFalse($probe['changed']);
-        self::assertSame(8, $probe['remoteTotal']);
-        self::assertSame(8, $probe['knownTotal']);
+        // Nine in Dash, seven mapped: the video and the pdf are not syncable types.
+        self::assertSame(9, $probe['remoteTotal']);
+        self::assertSame(9, $probe['knownTotal']);
         self::assertSame(7, $probe['mappedTotal']);
     }
 
@@ -57,7 +58,7 @@ final class ProbeTest extends IntegrationTestCase
             $ids[] = $asset['id'];
         }
 
-        self::assertCount(8, $ids);
-        self::assertCount(8, array_unique($ids));
+        self::assertCount(9, $ids);
+        self::assertCount(9, array_unique($ids));
     }
 }
