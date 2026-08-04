@@ -30,7 +30,7 @@ final class ScopeTest extends IntegrationTestCase
             // In Beeldbank/Zorg *and* an unselected folder that sorts first: the in-scope
             // folder must win, whatever order Dash lists the assignments in. This is the
             // scope-skip regression the canonicalisation rule fixed.
-            'Beeldbank/Zorg/clip~cccc3333.mp4',
+            'Beeldbank/Zorg/banner~1111aaaa.jpg',
             'Beeldbank/Zorg/duo~ffff6666.jpg',
             'Beeldbank/Zorg/foto-zorg~aaaa1111.jpg',
             'Beeldbank/Zorg/foto-zorg~abab7777.jpg',

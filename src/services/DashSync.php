@@ -53,22 +53,22 @@ class DashSync extends Component
     private const ORPHAN_ABORT_FLOOR = 5;
 
     /**
-     * Dash `currentAssetFile.fileType` values this sync has actually been proven to
-     * handle correctly end-to-end — element creation, dimensions, and serving real bytes
-     * through DashFs::read(). IMAGE was the original spike. VIDEO was verified afterwards
-     * by uploading a real file and comparing checksums at every layer (the API's reported
-     * checksum, DashApi::fetch(), and DashFs::getFileStream()) — all matched, so `previewUrl`
-     * turned out to serve the original, not the animated preview Dash's own docs describe.
+     * Dash `currentAssetFile.fileType` values this sync handles. Images only.
      *
-     * That was checked on a 19 KB clip; a HEAD request against two real multi-MB JPEGs
-     * confirmed the same previewUrl-matches-declared-size pattern without downloading
-     * either body, but no large video has been checked the same way. Widen this once one
-     * has been.
+     * Verified across a whole library: `previewUrl` serves the original image byte for
+     * byte, matching the API's own md5 on files up to 20 MB, despite what the endpoint is
+     * called.
      *
-     * Dash also handles Audio, Document, Font and a generic Other bucket. None of those
-     * have been tested here, so they are skipped rather than assumed to work the same way.
+     * VIDEO was on this list and has been taken off. It was only ever proven on a 19 KB
+     * clip, while Dash's own docs describe `previewUrl` serving an animated preview for
+     * video — so a real video could arrive as a rendition rather than the source, and
+     * nothing downstream would notice. Supporting a type nobody asked for, on evidence
+     * that thin, is a liability rather than a feature.
+     *
+     * Audio, Document, Font and Dash's generic Other bucket were never on it either. All
+     * skipped types are counted and reported per run, never silently dropped.
      */
-    private const SUPPORTED_FILE_TYPES = ['IMAGE', 'VIDEO'];
+    private const SUPPORTED_FILE_TYPES = ['IMAGE'];
 
     /**
      * How long the cheap probe is trusted before a full pass is run regardless.
@@ -235,7 +235,7 @@ class DashSync extends Component
         $this->log(count($dash) . ' assets in Dash');
 
         foreach ($skippedByType as $fileType => $skipCount) {
-            $this->log("  note: {$skipCount} {$fileType} asset(s) skipped — unverified file type, not synced");
+            $this->log("  note: {$skipCount} {$fileType} asset(s) skipped — this sync handles images only");
         }
 
         if ($outOfScope > 0) {

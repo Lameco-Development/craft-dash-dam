@@ -128,11 +128,17 @@ into several volumes — is out of scope for v1.
 
 ## Supported file types
 
-Dash `IMAGE` and `VIDEO` assets sync; Audio, Document, Font and Dash's generic Other
-bucket are skipped and counted in the run report, never silently dropped. The list is a
+Dash `IMAGE` assets sync. Video, Audio, Document, Font and Dash's generic Other bucket
+are skipped and counted in the run report, never silently dropped. The list is a
 code-owned constant, not a setting, because each type on it has been verified end-to-end —
 checksums compared at every layer to prove the original bytes arrive, not a preview
 rendition. Widening it means verifying the new type the same way and shipping a release.
+
+`VIDEO` was supported up to 1.1.0 and was removed in 1.2.0. It had only ever been proven
+on a 19 KB clip, and Dash documents `previewUrl` as serving an *animated preview* for
+video — so a real video could arrive as a rendition rather than the source. Assets already
+synced under the old behaviour are left alone rather than deleted: they fall out of scope
+and simply stop being updated.
 
 ## Where configuration lives
 

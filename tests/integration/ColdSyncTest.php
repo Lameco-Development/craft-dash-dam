@@ -15,13 +15,13 @@ final class ColdSyncTest extends IntegrationTestCase
         $counts = $this->reconcile();
 
         self::assertSame(7, $counts['created']);
-        self::assertSame(1, $counts['skippedUnsupported']);
+        self::assertSame(2, $counts['skippedUnsupported']);
         self::assertSame(0, $counts['failed']);
 
         self::assertSame([
             'Archief/Oud/duo~ffff6666.jpg',
             'Archief/Oud/oud~cdcd8888.jpg',
-            'Beeldbank/Zorg/clip~cccc3333.mp4',
+            'Beeldbank/Zorg/banner~1111aaaa.jpg',
             'Beeldbank/Zorg/foto-zorg~aaaa1111.jpg',
             'Beeldbank/Zorg/foto-zorg~abab7777.jpg',
             'Corporate/logo~bbbb2222.png',
@@ -40,9 +40,8 @@ final class ColdSyncTest extends IntegrationTestCase
         self::assertSame('Zorgfoto', $foto->title);
         self::assertSame(Asset::KIND_IMAGE, $foto->kind);
 
-        $clip = $this->assetByPath('Beeldbank/Zorg/clip~cccc3333.mp4');
-        self::assertSame(Asset::KIND_VIDEO, $clip->kind);
-        self::assertSame(1920, (int)$clip->width);
+        // The tenant's video and pdf are both skipped: this sync handles images only.
+        self::assertArrayNotHasKey('Beeldbank/Zorg/clip~cccc3333.mp4', $this->assetsByPath());
 
         self::assertSame(0, $this->dash->fetchCalls);
     }
