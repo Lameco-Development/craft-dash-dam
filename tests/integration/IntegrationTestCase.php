@@ -143,6 +143,16 @@ abstract class IntegrationTestCase extends TestCase
     }
 
     /**
+     * What an editor moving the focal point in the image editor leaves behind, without the
+     * controller round-trip: a value on the element and a row rewritten by Asset::afterSave().
+     */
+    protected function saveFocalPoint(Asset $asset, float $x, float $y): void
+    {
+        $asset->setFocalPoint(['x' => $x, 'y' => $y]);
+        self::assertTrue(Craft::$app->getElements()->saveElement($asset, false, true, false));
+    }
+
+    /**
      * Simulate a mapping lost before the plugin existed — the state adoption exists for.
      */
     protected function deleteMapRow(string $dashId): void

@@ -126,6 +126,16 @@ final class FakeDashApi extends DashApi
     }
 
     /**
+     * A version whose pixels are a different shape — a re-crop in Dash, which arrives as new
+     * dimensions against an unchanged path.
+     */
+    public function resize(string $dashId, int $width, int $height): void
+    {
+        $asset = &$this->findAsset($dashId);
+        $asset['currentAssetFile']['dimensions'] = ['width' => $width, 'height' => $height];
+    }
+
+    /**
      * Stands in for an asset that used to be syncable and no longer is — what upgrading
      * past a narrowed SUPPORTED_FILE_TYPES looks like from Craft's side.
      */

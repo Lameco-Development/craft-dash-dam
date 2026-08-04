@@ -5,6 +5,7 @@ namespace lameco\dash;
 use Craft;
 use craft\base\Element;
 use craft\base\Event;
+use craft\controllers\AssetsController;
 use craft\elements\Asset;
 use craft\events\AuthorizationCheckEvent;
 use craft\events\DefineHtmlEvent;
@@ -12,6 +13,10 @@ use craft\events\ModelEvent;
 use craft\events\RegisterElementSourcesEvent;
 use craft\helpers\Json;
 use craft\services\Elements;
+use craft\web\Request;
+use yii\base\ActionEvent;
+use yii\base\Controller;
+use yii\web\ForbiddenHttpException;
 
 /**
  * Keeps the Dash volume read-only where it has to be, while leaving alt text editable.
@@ -22,10 +27,11 @@ use craft\services\Elements;
  * only by `$static` — one stray keystroke there triggers a renameFile() the filesystem
  * refuses.
  *
- * Saving is deliberately *not* blocked. Dash ships no alt-text field, so if editors could not
- * author alt text in Craft there would be nowhere to author it at all, and 282 images would go
- * live on a healthcare site without any. What is blocked is everything that would move bytes
- * or identity: uploads, replacements, renames, moves, duplication and deletion.
+ * Saving is deliberately *not* blocked. Dash ships no alt-text field and no focal point, so if
+ * editors could not author those in Craft there would be nowhere to author them at all — and
+ * every alt attribute would be empty and every `mode: crop` transform centre-cropped. What is
+ * blocked is everything that would move bytes or identity: uploads, replacements, renames,
+ * moves, duplication, deletion, and the image editor's crop/rotate/flip.
  *
  * None of this touches DashSync. saveElement() and deleteElement() do not consult
  * canSave()/canDelete(), and the sync sets folderId and filename directly rather than through
@@ -89,12 +95,11 @@ class ReadOnlyGuard
             }
         });
 
-        // Two controls in the asset editor survive everything above, because Craft gates them
-        // on things that do not hold here. The Filename input is `'disabled' => $static`, and
-        // $static follows canSave — which has to stay true for alt text. The Edit Image button
-        // is gated on the `editImages` permission, which admins bypass.
-        //
-        // Neither has a server-side hook that can reach it while saving is allowed, so they are
+        self::refuseImageEdits();
+
+        // The Filename input survives everything above, because Craft gates it on
+        // `'disabled' => $static` and $static follows canSave — which has to stay true for alt
+        // text. It has no server-side hook that can reach it while saving is allowed, so it is
         // taken out of the page here. This is presentation only: the real enforcement is the
         // before-save guard above, which refuses the write whatever the markup says.
         Event::on(Asset::class, Element::EVENT_DEFINE_META_FIELDS_HTML, static function(DefineHtmlEvent $event) {
@@ -156,9 +161,6 @@ class ReadOnlyGuard
     // flag, and it must keep posting its value — the attribute is required, and a disabled input
     // would be left out of the request and fail validation on save.
     markReadOnly(document.querySelector('#title, [name="title"]'), $titleHint, false);
-
-    // Stable class from Craft's own markup, so this does not depend on the button's label.
-    document.querySelectorAll('.edit-btn').forEach((button) => button.remove());
 })();
 JS);
         });
@@ -189,5 +191,79 @@ JS);
                 $source['data']['can-move-to'] = false;
             }
         });
+    }
+
+    /**
+     * Let the image editor set a focal point on a Dash asset, and refuse everything else it can do.
+     *
+     * A focal point is the one thing in that editor Dash cannot express: it is a Craft-side
+     * framing decision, stored on the element, and without it every `mode: crop` transform of a
+     * Dash image crops from the centre. Cropping, rotating, flipping and zooming are a different
+     * matter — they rewrite the file, which the filesystem refuses and which would break the path
+     * identity the id mapping depends on.
+     *
+     * This has to be a controller guard rather than the before-save guard, because
+     * AssetsController::actionSaveImage() ignores what replaceAssetFile() and saveElement() return.
+     * A refusal down there is invisible: the editor closes, reports success and writes nothing.
+     * Refusing the request instead surfaces the message, and a focal-point-only save is the one
+     * shape that never sets newFilename/tempFilePath, so it passes both guards untouched.
+     */
+    private static function refuseImageEdits(): void
+    {
+        Event::on(AssetsController::class, Controller::EVENT_BEFORE_ACTION, static function(ActionEvent $event) {
+            if ($event->action->id !== 'save-image') {
+                return;
+            }
+
+            $request = Craft::$app->getRequest();
+            $asset = Craft::$app->getAssets()->getAssetById((int)$request->getBodyParam('assetId'));
+
+            if ($asset === null || !DashVolumes::isDashAsset($asset) || self::onlyMovesTheFocalPoint($request)) {
+                return;
+            }
+
+            throw new ForbiddenHttpException(Craft::t(
+                'dash-dam',
+                'Dash images can only have their focal point changed here. Crop, rotate and flip rewrite the file — make those changes in Dash instead and the site will follow at the next sync.',
+            ));
+        });
+    }
+
+    /**
+     * The parameters actionSaveImage() reads to decide whether the file itself changed, tested
+     * for the identity values it treats as "nothing happened". `replace` is in there because its
+     * false branch writes a *new* asset into the Dash volume rather than editing this one.
+     */
+    private static function onlyMovesTheFocalPoint(Request $request): bool
+    {
+        if (!$request->getBodyParam('replace')) {
+            return false;
+        }
+
+        if ((int)$request->getBodyParam('viewportRotation') !== 0 || (float)$request->getBodyParam('imageRotation') !== 0.0) {
+            return false;
+        }
+
+        if ((float)$request->getBodyParam('zoom', 1) !== 1.0) {
+            return false;
+        }
+
+        $flip = $request->getBodyParam('flipData') ?: [];
+
+        if (!empty($flip['x']) || !empty($flip['y'])) {
+            return false;
+        }
+
+        // The same comparison the controller makes to set $imageCropped, and on the same pair of
+        // params — so a crop this reads as absent is one the controller would not have applied.
+        $crop = $request->getBodyParam('cropData') ?: [];
+        $dimensions = $request->getBodyParam('imageDimensions') ?: [];
+
+        if (!isset($crop['width'], $crop['height'], $dimensions['width'], $dimensions['height'])) {
+            return false;
+        }
+
+        return (float)$crop['width'] === (float)$dimensions['width']
+            && (float)$crop['height'] === (float)$dimensions['height'];
     }
 }
