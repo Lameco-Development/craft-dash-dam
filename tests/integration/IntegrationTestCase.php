@@ -106,15 +106,26 @@ abstract class IntegrationTestCase extends TestCase
     }
 
     /**
-     * @return array<string, array<string, mixed>> mapping rows keyed by Dash id
+     * Mapping rows keyed by Dash id — the key the fixtures are written against, which is why
+     * this re-keys rather than handing back DashAssetMap's asset-id map directly.
+     *
+     * @return array<string, array<string, mixed>>
      */
     protected function mapRows(): array
     {
-        $rows = Craft::$app->getDb()
-            ->createCommand('SELECT assetId, dashId, checksum, missingSince, previewUrl FROM {{%dash_asset_map}}')
-            ->queryAll();
+        $rows = [];
 
-        return array_column($rows, null, 'dashId');
+        foreach ($this->assetMap()->all() as $mapping) {
+            $rows[$mapping->dashId] = [
+                'assetId' => $mapping->assetId,
+                'dashId' => $mapping->dashId,
+                'checksum' => $mapping->checksum,
+                'missingSince' => $mapping->missingSince,
+                'previewUrl' => $mapping->previewUrl,
+            ];
+        }
+
+        return $rows;
     }
 
     /**

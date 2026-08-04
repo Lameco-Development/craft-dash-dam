@@ -17,6 +17,7 @@ final class Mapping
         public readonly string $dashId,
         public readonly ?string $checksum,
         public readonly ?string $missingSince,
+        public readonly ?string $previewUrl = null,
     ) {
     }
 

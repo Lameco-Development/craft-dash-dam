@@ -49,7 +49,7 @@ class DashAssetMap extends Component
     public function all(): array
     {
         $rows = Craft::$app->getDb()
-            ->createCommand('SELECT assetId, dashId, checksum, missingSince FROM ' . self::MAP_TABLE)
+            ->createCommand('SELECT assetId, dashId, checksum, missingSince, previewUrl FROM ' . self::MAP_TABLE)
             ->queryAll();
 
         $mappings = [];
@@ -61,6 +61,7 @@ class DashAssetMap extends Component
                 (string)$row['dashId'],
                 $row['checksum'],
                 $row['missingSince'],
+                $row['previewUrl'] === '' ? null : $row['previewUrl'],
             );
         }
 
@@ -197,7 +198,9 @@ class DashAssetMap extends Component
      * The Dash preview URL for an asset, or null if it is not a Dash asset.
      *
      * Loaded for the whole table in one query and held for the request: the control panel
-     * asks per asset, and a folder of 225 would otherwise be 225 queries.
+     * asks per asset, and a folder of 225 would otherwise be 225 queries. That memo is why
+     * this is the wrong reader for anything that writes and re-reads within one process —
+     * use all() there, which always queries.
      */
     public function previewUrl(int $assetId): ?string
     {
