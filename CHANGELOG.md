@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/Lameco-Development/craft-dash-dam/compare/1.1.0...1.2.0) (2026-08-04)
+
+
+### Features
+
+* sync images only, dropping video support ([#24](https://github.com/Lameco-Development/craft-dash-dam/issues/24)) ([13e4387](https://github.com/Lameco-Development/craft-dash-dam/commit/13e4387f1f80bdda10ee3c645ee9b184652d7015))
+
 ## [1.1.0](https://github.com/Lameco-Development/craft-dash-dam/compare/1.0.3...1.1.0) (2026-08-03)
 
 
