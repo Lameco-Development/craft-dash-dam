@@ -72,7 +72,7 @@ class DashTransforms extends Component
         }
 
         // An unreferenced asset is not on a page, so nothing would ask for its transforms.
-        $referenced = array_keys(Plugin::getInstance()->getDashSync()->usageCounts($assetIds));
+        $referenced = array_keys(Plugin::getInstance()->getAssetUsage()->counts($assetIds));
 
         if ($referenced === []) {
             return $result;

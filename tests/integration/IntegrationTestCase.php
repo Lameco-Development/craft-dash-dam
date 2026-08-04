@@ -4,9 +4,12 @@ namespace lameco\dash\tests\integration;
 
 use Craft;
 use craft\elements\Asset;
+use craft\helpers\Db;
 use craft\models\Volume;
+use DateTime;
 use lameco\dash\DashVolumes;
 use lameco\dash\Plugin;
+use lameco\dash\services\DashAssetMap;
 use lameco\dash\services\DashConfig;
 use lameco\dash\services\DashSync;
 use PHPUnit\Framework\TestCase;
@@ -132,6 +135,11 @@ abstract class IntegrationTestCase extends TestCase
         return $this->plugin()->getDashConfig();
     }
 
+    protected function assetMap(): DashAssetMap
+    {
+        return $this->plugin()->getDashAssetMap();
+    }
+
     /**
      * Author alt text in Craft the way an editor does, which is the one write the
      * read-only guard deliberately allows.
@@ -150,6 +158,17 @@ abstract class IntegrationTestCase extends TestCase
     {
         $asset->setFocalPoint(['x' => $x, 'y' => $y]);
         self::assertTrue(Craft::$app->getElements()->saveElement($asset, false, true, false));
+    }
+
+    /**
+     * Mark a mapping missing straight in the database, without a reconcile — so a test can
+     * change the number the badge counts without going through the code that invalidates it.
+     */
+    protected function stampMissing(string $dashId): void
+    {
+        Craft::$app->getDb()->createCommand()
+            ->update('{{%dash_asset_map}}', ['missingSince' => Db::prepareDateForDb(new DateTime())], ['dashId' => $dashId])
+            ->execute();
     }
 
     /**
@@ -201,7 +220,7 @@ abstract class IntegrationTestCase extends TestCase
     /**
      * Make an asset "in use" the way Assets fields do: a row in the relations table.
      * The source is another element — any element row satisfies the foreign key, and
-     * usageCounts() only looks at the target side.
+     * AssetUsage::counts() only looks at the target side.
      */
     protected function relate(Asset $source, Asset $target): void
     {

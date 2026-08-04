@@ -59,7 +59,7 @@ final class OrphanTest extends IntegrationTestCase
 
         self::assertSame(1, $counts['returned']);
         self::assertNull($this->mapRows()[self::OUD]['missingSince']);
-        self::assertSame([], $this->sync()->missingAssets());
+        self::assertSame([], $this->assetMap()->missing());
     }
 
     public function testTrashOrphansOffOnlyReports(): void

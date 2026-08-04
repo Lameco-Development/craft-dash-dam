@@ -40,6 +40,6 @@ final class FileTypeTest extends IntegrationTestCase
         // Still there, still mapped — it simply stops being kept up to date.
         self::assertArrayHasKey(self::BANNER_PATH, $this->assetsByPath());
         self::assertArrayHasKey(self::BANNER, $this->mapRows());
-        self::assertSame([], $this->sync()->missingAssets());
+        self::assertSame([], $this->assetMap()->missing());
     }
 }

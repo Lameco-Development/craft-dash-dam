@@ -6,7 +6,6 @@ use Craft;
 use craft\base\Utility;
 use craft\elements\Asset;
 use lameco\dash\Plugin;
-use lameco\dash\services\DashSync;
 
 /**
  * Reports assets that were deleted in Dash but are still referenced in Craft.
@@ -17,9 +16,6 @@ use lameco\dash\services\DashSync;
  */
 class DashUtility extends Utility
 {
-    /** Long enough that a control-panel page load never pays for this twice. */
-    private const BADGE_CACHE_DURATION = 60;
-
     public static function id(): string
     {
         return 'dash';
@@ -37,29 +33,26 @@ class DashUtility extends Utility
 
     /**
      * Craft recalculates this on every control panel request and sums it into the main menu,
-     * so it stays a single indexed COUNT behind a cache and never touches the Dash API.
+     * so the count is cached and never touches the Dash API. The cache and its invalidation
+     * both live with the mapping, which is the only thing that can change the number.
      */
     public static function badgeCount(): int
     {
-        return Craft::$app->getCache()->getOrSet(
-            DashSync::BADGE_CACHE_KEY,
-            static fn() => Plugin::getInstance()->getDashSync()->missingCount(),
-            self::BADGE_CACHE_DURATION,
-        );
+        return Plugin::getInstance()->getDashAssetMap()->cachedMissingCount();
     }
 
     public static function contentHtml(): string
     {
         $plugin = Plugin::getInstance();
-        $sync = $plugin->getDashSync();
+        $map = $plugin->getDashAssetMap();
         $config = $plugin->getDashConfig();
-        $missing = $sync->missingAssets();
+        $missing = $map->missing();
         $assets = [];
         $usedBy = [];
 
         if ($missing !== []) {
             $assets = Asset::find()->id(array_keys($missing))->status(null)->indexBy('id')->all();
-            $usedBy = $sync->usedBy(array_keys($missing));
+            $usedBy = $plugin->getAssetUsage()->owners(array_keys($missing));
         }
 
         return Craft::$app->getView()->renderTemplate('dash-dam/_utility', [
@@ -69,7 +62,7 @@ class DashUtility extends Utility
             // Decides what an empty "Used by" means: with trashing on, the sync is about to
             // clear the row by itself; with it off, the row is the whole point and stays.
             'trashOrphans' => $plugin->getSettings()->trashOrphans,
-            'lastSync' => $sync->lastSync(),
+            'lastSync' => $plugin->getDashSync()->lastSync(),
             'availableFolders' => $config->availableFolders(),
             'syncFolders' => $config->syncFolders(),
         ]);
