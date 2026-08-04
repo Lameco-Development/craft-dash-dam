@@ -172,8 +172,11 @@ abstract class IntegrationTestCase extends TestCase
     }
 
     /**
-     * Mark a mapping missing straight in the database, without a reconcile — so a test can
-     * change the number the badge counts without going through the code that invalidates it.
+     * Mark a mapping missing straight in the database, without a reconcile.
+     *
+     * One of two helpers that deliberately write to the mapping table rather than through
+     * DashAssetMap — see also deleteMapRow(). Going through the module would invalidate the
+     * badge cache, which is the very thing the test needs left alone.
      */
     protected function stampMissing(string $dashId): void
     {

@@ -6,10 +6,6 @@ use lameco\dash\utilities\DashUtility;
 
 /**
  * The control panel badge counting assets that broke while nobody was looking.
- *
- * Craft sums every utility's badge into the main menu on every control panel request, so the
- * count is cached. A reconcile is the only thing that can move it — it stamps missingSince
- * and clears it — which makes it the only thing that has to invalidate the cache.
  */
 final class BadgeCountTest extends IntegrationTestCase
 {

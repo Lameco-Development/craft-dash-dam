@@ -189,8 +189,6 @@ class DashSync extends Component
             // rather than from the probe's count, so the two can never disagree about which
             // library state was actually processed.
             $this->setState('remoteTotal', (string)$counts['remoteTotal']);
-            // A reconcile is the only thing that stamps or clears missingSince, so it is the
-            // only thing that can leave the control panel badge reporting a pre-sync figure.
             $this->map()->clearBadgeCache();
 
             return $counts;
@@ -444,7 +442,7 @@ class DashSync extends Component
                     continue;
                 }
 
-                $this->map()->map($asset->id, $dashId);
+                $this->map()->add($asset->id, $dashId);
                 // No checksum yet: adoption records the identity, and the first reconcile
                 // pass over it fills in what the file currently looks like.
                 $mappings[$asset->id] = new Mapping($asset->id, $dashId, null, null);
@@ -754,7 +752,7 @@ class DashSync extends Component
                 continue;
             }
 
-            $this->map()->map($asset->id, $dashId, $state['checksum'], $state['previewUrl']);
+            $this->map()->add($asset->id, $dashId, $state['checksum'], $state['previewUrl']);
 
             $this->log("  CREATED  #{$asset->id}  {$state['path']}"
                 . ($state['width'] !== null ? "  ({$state['width']}x{$state['height']}, from API)" : ''));

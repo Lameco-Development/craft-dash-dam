@@ -28,11 +28,7 @@ class DashAssetMap extends Component
 {
     private const MAP_TABLE = '{{%dash_asset_map}}';
 
-    /**
-     * Cache key for the control panel badge, owned here with the count it caches: the only
-     * thing that moves that number is a reconcile stamping or clearing missingSince, and
-     * both of those go through this module.
-     */
+    /** Cache key for the control panel badge, owned here with the count it caches. */
     private const BADGE_CACHE_KEY = 'dash.missingCount';
 
     /** Long enough that a control panel page load never pays for the count twice. */
@@ -85,7 +81,7 @@ class DashAssetMap extends Component
             ->queryScalar();
     }
 
-    public function map(int $assetId, string $dashId, ?string $checksum = null, ?string $previewUrl = null): void
+    public function add(int $assetId, string $dashId, ?string $checksum = null, ?string $previewUrl = null): void
     {
         Craft::$app->getDb()->createCommand()->insert(self::MAP_TABLE, [
             'assetId' => $assetId,
@@ -171,9 +167,9 @@ class DashAssetMap extends Component
      * control panel request and sums them into the main menu, so the uncached query would run
      * on page loads that have nothing to do with Dash.
      *
-     * `missingSince` carries no index, so this is a scan of the mapping table rather than the
-     * index seek an earlier comment claimed. Cheap at the library sizes this plugin sees, but
-     * worth knowing before anyone leans on it harder.
+     * `missingSince` carries no index, so this is a scan of the mapping table rather than an
+     * index seek. Cheap at the library sizes this plugin sees, but worth knowing before
+     * anyone leans on it harder.
      */
     public function cachedMissingCount(): int
     {

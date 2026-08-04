@@ -32,10 +32,7 @@ class AssetUsage extends Component
             return [];
         }
 
-        $rows = Craft::$app->getDb()->createCommand(
-            'SELECT targetId, COUNT(*) AS uses FROM {{%relations}} WHERE targetId IN ('
-            . implode(',', array_map('intval', $assetIds)) . ') GROUP BY targetId',
-        )->queryAll();
+        $rows = $this->query('SELECT targetId, COUNT(*) AS uses', $assetIds, ' GROUP BY targetId');
 
         return array_column($rows, 'uses', 'targetId');
     }
@@ -59,10 +56,7 @@ class AssetUsage extends Component
             return [];
         }
 
-        $rows = Craft::$app->getDb()->createCommand(
-            'SELECT DISTINCT targetId, sourceId FROM {{%relations}} WHERE targetId IN ('
-            . implode(',', array_map('intval', $assetIds)) . ')',
-        )->queryAll();
+        $rows = $this->query('SELECT DISTINCT targetId, sourceId', $assetIds);
 
         $owners = [];
         $byAsset = [];
@@ -83,5 +77,21 @@ class AssetUsage extends Component
         }
 
         return array_map('array_values', $byAsset);
+    }
+
+    /**
+     * Both reads target the same rows and differ only in what they select. The ids are cast
+     * and inlined rather than bound: the list is as long as the asset set, and binding a
+     * variable number of parameters buys nothing once every value is an int.
+     *
+     * @param int[] $assetIds must not be empty — an empty IN () is a syntax error
+     * @return array<int, array<string, mixed>>
+     */
+    private function query(string $select, array $assetIds, string $suffix = ''): array
+    {
+        return Craft::$app->getDb()->createCommand(
+            $select . ' FROM {{%relations}} WHERE targetId IN ('
+            . implode(',', array_map('intval', $assetIds)) . ')' . $suffix,
+        )->queryAll();
     }
 }

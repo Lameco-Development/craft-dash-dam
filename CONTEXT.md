@@ -21,7 +21,7 @@ _Avoid_: Craft asset, local asset
 The record that a given asset element is a given Dash asset, together with what the last
 sync saw of that file. Reconciling on the mapping rather than on path is what stops a move
 in Dash reading as one file deleted plus one file created.
-_Avoid_: link, association, id map
+_Avoid_: link, association
 
 **Tenant**:
 The Dash account an environment is pointed at. Switching tenants invalidates every mapping,
@@ -67,7 +67,9 @@ scope.
 
 **Missing since**:
 When an orphan was first seen to be gone. Stamped once, so the control panel reports how
-long an asset has been broken rather than how recently a sync noticed.
+long an asset has been broken rather than how recently a sync noticed. Only a kept orphan
+carries it — a trashed one is unmapped, so "the missing" is always narrower than "the
+orphans".
 
 **In use**:
 Referenced by another element. An orphan that is in use is reported rather than trashed,
