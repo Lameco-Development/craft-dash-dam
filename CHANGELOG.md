@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/Lameco-Development/craft-dash-dam/compare/1.2.0...1.3.0) (2026-08-04)
+
+
+### Features
+
+* let editors set a focal point on Dash images ([#26](https://github.com/Lameco-Development/craft-dash-dam/issues/26)) ([26ea807](https://github.com/Lameco-Development/craft-dash-dam/commit/26ea80772791c6b01f2407b7b6cda113fcdb28bc))
+
 ## [1.2.0](https://github.com/Lameco-Development/craft-dash-dam/compare/1.1.0...1.2.0) (2026-08-04)
 
 
