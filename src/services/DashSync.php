@@ -3,18 +3,16 @@
 namespace lameco\dash\services;
 
 use Craft;
-use craft\base\ElementInterface;
 use craft\elements\Asset;
 use craft\helpers\Assets;
-use craft\helpers\Db;
 use craft\helpers\Image;
 use craft\models\Volume;
-use DateTime;
 use lameco\dash\DashVolumes;
 use lameco\dash\errors\DashApiException;
 use lameco\dash\fs\DashFs;
 use lameco\dash\helpers\CanonicalFolder;
 use lameco\dash\helpers\ProbeDecision;
+use lameco\dash\models\Mapping;
 use lameco\dash\Plugin;
 use Throwable;
 use yii\base\Component;
@@ -34,15 +32,7 @@ use yii\base\Component;
  */
 class DashSync extends Component
 {
-    private const MAP_TABLE = '{{%dash_asset_map}}';
     private const STATE_TABLE = '{{%dash_sync_state}}';
-
-    /**
-     * Cache key for the control panel badge. Owned here rather than by the utility that
-     * renders it, because what it caches is missingCount() — so anything that changes that
-     * number can invalidate it without reaching into another class's constants.
-     */
-    public const BADGE_CACHE_KEY = 'dash.missingCount';
 
     private const MUTEX_NAME = 'lameco:dashSync';
 
@@ -101,9 +91,6 @@ class DashSync extends Component
     /** @var callable|null called with each progress line */
     public $logger = null;
 
-    /** @var array<int, string|null>|null assetId => Dash preview URL, loaded once per request */
-    private ?array $previewUrls = null;
-
     /**
      * The declared values above are fallbacks; the settings are the source. Overriding one
      * for a single run still works, because callers do that after the component is built —
@@ -153,9 +140,7 @@ class DashSync extends Component
         // that can see a deletion.
         $remoteTotal = $this->api()->countAssets(['type' => 'MATCH_ALL']);
         $knownTotal = $this->state('remoteTotal');
-        $mappedTotal = (int)Craft::$app->getDb()
-            ->createCommand('SELECT COUNT(*) FROM ' . self::MAP_TABLE)
-            ->queryScalar();
+        $mappedTotal = $this->map()->count();
 
         // Every reconcile rescans the whole library and compares checksums, so the
         // watermark doubles as "when everything was last verified".
@@ -204,6 +189,7 @@ class DashSync extends Component
             // rather than from the probe's count, so the two can never disagree about which
             // library state was actually processed.
             $this->setState('remoteTotal', (string)$counts['remoteTotal']);
+            $this->map()->clearBadgeCache();
 
             return $counts;
         } finally {
@@ -224,7 +210,6 @@ class DashSync extends Component
             throw new DashApiException('No folders are selected for sync. Nothing is synced until folders are chosen in the Dash utility.');
         }
 
-        $db = Craft::$app->getDb();
         [
             'assets' => $dash,
             'allIds' => $allIds,
@@ -242,27 +227,26 @@ class DashSync extends Component
             $this->log("  note: {$outOfScope} asset(s) outside the selected folders — not synced");
         }
 
-        $mapped = $db->createCommand('SELECT assetId, dashId, checksum, missingSince FROM ' . self::MAP_TABLE)->queryAll();
-        $byAssetId = array_column($mapped, 'dashId', 'assetId');
-        $knownChecksum = array_column($mapped, 'checksum', 'assetId');
-        $wasMissing = array_column($mapped, 'missingSince', 'assetId');
+        $mappings = $this->map()->all();
 
-        // Against everything Dash returned, not just the in-scope subset: narrowing the
-        // folder selection is not a deletion and must not trip the abort.
-        $this->refuseMassDisappearance($byAssetId, $allIds);
+        // Judged on the mapped set as it stood before adoption, and against everything Dash
+        // returned rather than the in-scope subset: narrowing the folder selection is not a
+        // deletion and must not trip the abort.
+        $this->refuseMassDisappearance(self::dashIds($mappings), $allIds);
 
         $counts = ['adopted' => 0, 'unmatched' => 0, 'created' => 0, 'moved' => 0, 'retitled' => 0,
             'altSynced' => 0, 'resized' => 0, 'restamped' => 0, 'reframed' => 0, 'trashed' => 0, 'inUse' => 0, 'returned' => 0,
             'outOfScope' => 0, 'failed' => 0, 'skippedUnsupported' => array_sum($skippedByType), ];
 
-        $this->adoptUnmapped($volume, $dash, $byAssetId, $counts);
-        $this->syncMapped($volume, $dash, $allIds, $byAssetId, $knownChecksum, $wasMissing, $altSyncable, $counts);
-        $this->createMissing($volume, $dash, $byAssetId, $altSyncable, $counts);
+        // Adoption adds to $mappings, so what syncMapped() walks includes anything just
+        // claimed — an adopted asset is reconciled in the same run that adopted it.
+        $this->adoptUnmapped($volume, $dash, $mappings, $counts);
+        $this->syncMapped($volume, $dash, $allIds, $mappings, $altSyncable, $counts);
+        $this->createMissing($volume, $dash, self::dashIds($mappings), $altSyncable, $counts);
 
         // Last, so it works on assets that have finished moving and had stale derivatives
         // cleared. Reads the mapping table fresh — createMissing() has added rows since.
-        $mappedIds = array_map('intval', $db->createCommand('SELECT assetId FROM ' . self::MAP_TABLE)->queryColumn());
-        $transforms = $this->transforms()->ensureTransforms($mappedIds);
+        $transforms = $this->transforms()->ensureTransforms($this->map()->assetIds());
         $counts['transformed'] = $transforms['generated'];
         $counts['transformsDeferred'] = $transforms['deferred'];
         $counts['failed'] += $transforms['failed'];
@@ -398,25 +382,37 @@ class DashSync extends Component
     }
 
     /**
+     * The Dash id of each mapping, keyed by asset id — the shape the matching code works in.
+     *
+     * @param array<int, Mapping> $mappings
+     * @return array<int, string>
+     */
+    private static function dashIds(array $mappings): array
+    {
+        return array_map(static fn(Mapping $mapping) => $mapping->dashId, $mappings);
+    }
+
+    /**
      * Adopt any Craft asset in the volume that has no mapping yet: exact path first, then
      * filename among the leftovers. An asset whose path drifted before the mapping
      * existed cannot be matched on path, and on a real install that is the common case.
+     *
+     * @param array<int, Mapping> $mappings gains a Mapping for every asset adopted
      */
-    private function adoptUnmapped(Volume $volume, array $dash, array &$byAssetId, array &$counts): void
+    private function adoptUnmapped(Volume $volume, array $dash, array &$mappings, array &$counts): void
     {
         // IDs only. Hydrating every element in the volume to find the unmapped few is
         // what breaks at library scale, and on a healthy install none are unmapped.
         $unmappedIds = array_values(array_diff(
             Asset::find()->volumeId($volume->id)->status(null)->ids(),
-            array_keys($byAssetId),
+            array_keys($mappings),
         ));
 
         if ($unmappedIds === []) {
             return;
         }
 
-        $db = Craft::$app->getDb();
-        $claimed = array_flip($byAssetId);
+        $claimed = array_flip(self::dashIds($mappings));
         $available = array_diff_key($dash, $claimed);
         $byPath = array_flip(array_map(static fn(array $state) => $state['path'], $available));
         $byFilename = [];
@@ -446,8 +442,10 @@ class DashSync extends Component
                     continue;
                 }
 
-                $db->createCommand()->insert(self::MAP_TABLE, ['assetId' => $asset->id, 'dashId' => $dashId])->execute();
-                $byAssetId[$asset->id] = $dashId;
+                $this->map()->add($asset->id, $dashId);
+                // No checksum yet: adoption records the identity, and the first reconcile
+                // pass over it fills in what the file currently looks like.
+                $mappings[$asset->id] = new Mapping($asset->id, $dashId, null, null);
                 $claimed[$dashId] = $asset->id;
                 $this->log("  ADOPTED  #{$asset->id}  {$asset->getPath()}  (matched by $how)");
                 $counts['adopted']++;
@@ -457,30 +455,31 @@ class DashSync extends Component
         $this->log("Seeded {$counts['adopted']} mapping(s)");
     }
 
+    /**
+     * @param array<int, Mapping> $mappings
+     */
     private function syncMapped(
         Volume $volume,
         array $dash,
         array $allIds,
-        array $byAssetId,
-        array $knownChecksum,
-        array $wasMissing,
+        array $mappings,
         bool $altSyncable,
         array &$counts,
     ): void {
-        $db = Craft::$app->getDb();
         $orphanIds = [];
 
-        foreach (array_chunk($byAssetId, self::CHUNK_SIZE, true) as $chunk) {
+        foreach (array_chunk($mappings, self::CHUNK_SIZE, true) as $chunk) {
             // One query per chunk rather than one per asset. status(null) matches what
             // Elements::getElementById() does, so nothing is filtered out that used to
             // be found.
             $assets = Asset::find()->id(array_keys($chunk))->status(null)->indexBy('id')->all();
 
-            foreach ($chunk as $assetId => $dashId) {
+            foreach ($chunk as $assetId => $mapping) {
+                $dashId = $mapping->dashId;
                 $asset = $assets[$assetId] ?? null;
 
                 if ($asset === null) {
-                    $db->createCommand()->delete(self::MAP_TABLE, ['assetId' => $assetId])->execute();
+                    $this->map()->forget($assetId);
                     continue;
                 }
 
@@ -503,8 +502,8 @@ class DashSync extends Component
 
                 // Restored in Dash, or pulled back out of its bin. Clearing the stamp is what
                 // takes the asset off the control panel's broken list.
-                if (($wasMissing[$assetId] ?? null) !== null) {
-                    $db->createCommand()->update(self::MAP_TABLE, ['missingSince' => null], ['assetId' => $assetId])->execute();
+                if ($mapping->isMissing()) {
+                    $this->map()->markReturned($assetId);
                     $this->log("  RETURNED #{$assetId}  back in Dash");
                     $counts['returned']++;
                 }
@@ -543,8 +542,8 @@ class DashSync extends Component
                 // changes. A same-name version replacement leaves the path identical, so
                 // nothing else here would notice. The Dash checksum is the only signal.
                 $checksum = $state['checksum'];
-                $contentChanged = $checksum !== null && ($knownChecksum[$assetId] ?? null) !== null
-                    && $checksum !== $knownChecksum[$assetId];
+                $contentChanged = $checksum !== null && $mapping->checksum !== null
+                    && $checksum !== $mapping->checksum;
 
                 if ($contentChanged) {
                     Craft::$app->getImageTransforms()->deleteAllTransformData($asset);
@@ -563,15 +562,9 @@ class DashSync extends Component
                     $counts['reframed']++;
                 }
 
-                // Dash signs these for 30 days and hands back the same URL until it re-signs,
-                // so it is stored unconditionally rather than compared — the stored one is what
-                // the control panel reads, and letting it age out would leave every thumbnail
-                // broken. Refreshing every run keeps it far from its expiry.
-                $db->createCommand()->update(
-                    self::MAP_TABLE,
-                    ['checksum' => $checksum, 'previewUrl' => $state['previewUrl']],
-                    ['assetId' => $assetId],
-                )->execute();
+                // Refreshed every run rather than only on change, which keeps the signed
+                // preview URL far from its expiry — see DashAssetMap::recordFile().
+                $this->map()->recordFile($assetId, $checksum, $state['previewUrl']);
 
                 if (!$pathChanged && !$titleChanged && !$altChanged && !$sizeChanged && !$dimsChanged) {
                     continue;
@@ -688,8 +681,7 @@ class DashSync extends Component
 
     private function handleOrphans(array $orphanIds, array &$counts): void
     {
-        $db = Craft::$app->getDb();
-        $uses = $this->usageCounts($orphanIds);
+        $uses = $this->usage()->counts($orphanIds);
 
         foreach (array_chunk($orphanIds, self::CHUNK_SIZE) as $ids) {
             foreach (Asset::find()->id($ids)->status(null)->all() as $asset) {
@@ -702,14 +694,7 @@ class DashSync extends Component
                         __METHOD__,
                     );
 
-                    // Stamped once and then left alone, so the control panel can report how
-                    // long this has been broken rather than how recently a sync noticed.
-                    $db->createCommand()->update(
-                        self::MAP_TABLE,
-                        ['missingSince' => Db::prepareDateForDb(new DateTime())],
-                        ['assetId' => $asset->id, 'missingSince' => null],
-                    )->execute();
-
+                    $this->map()->markMissing($asset->id);
                     $this->log("  IN USE   #{$asset->id}  {$asset->getPath()}  — gone from Dash, {$reason}");
                     $counts['inUse']++;
                     continue;
@@ -721,7 +706,7 @@ class DashSync extends Component
                     continue;
                 }
 
-                $db->createCommand()->delete(self::MAP_TABLE, ['assetId' => $asset->id])->execute();
+                $this->map()->forget($asset->id);
                 $this->log("  TRASHED  #{$asset->id}  {$asset->getPath()}  — gone from Dash, unused");
                 $counts['trashed']++;
             }
@@ -735,8 +720,6 @@ class DashSync extends Component
      */
     private function createMissing(Volume $volume, array $dash, array $byAssetId, bool $altSyncable, array &$counts): void
     {
-        $db = Craft::$app->getDb();
-
         foreach (array_diff_key($dash, array_flip($byAssetId)) as $dashId => $state) {
             $folder = Craft::$app->getAssets()
                 ->ensureFolderByFullPathAndVolume($this->folderPathOf($state['path']), $volume);
@@ -769,12 +752,7 @@ class DashSync extends Component
                 continue;
             }
 
-            $db->createCommand()->insert(self::MAP_TABLE, [
-                'assetId' => $asset->id,
-                'dashId' => $dashId,
-                'checksum' => $state['checksum'],
-                'previewUrl' => $state['previewUrl'],
-            ])->execute();
+            $this->map()->add($asset->id, $dashId, $state['checksum'], $state['previewUrl']);
 
             $this->log("  CREATED  #{$asset->id}  {$state['path']}"
                 . ($state['width'] !== null ? "  ({$state['width']}x{$state['height']}, from API)" : ''));
@@ -937,7 +915,7 @@ class DashSync extends Component
         }
 
         $counts['folders'] = $this->clearFolderTree($volume);
-        $counts['unmapped'] = (int)$db->createCommand()->delete(self::MAP_TABLE)->execute();
+        $counts['unmapped'] = $this->map()->forgetAll();
         $db->createCommand()->delete(self::STATE_TABLE, ['k' => 'lastSync'])->execute();
         $this->clearCaches();
 
@@ -982,125 +960,13 @@ class DashSync extends Component
      * list behind the selection form, and the control panel's badge count. Left alone they
      * would keep describing a library this environment no longer talks to.
      */
-    public function clearCaches(): void
+    private function clearCaches(): void
     {
         DashFs::clearCache();
         $this->config()->clearFolderCache();
-        Craft::$app->getCache()->delete(self::BADGE_CACHE_KEY);
+        $this->map()->clearBadgeCache();
     }
 
-    /**
-     * Assets that stopped coming back from Dash and were kept rather than trashed — the
-     * ones that will serve a broken image. Reads the mapping table only: the control panel
-     * must never call Dash to render a page.
-     *
-     * @return array<int, string> assetId => when it went missing
-     */
-    public function missingAssets(): array
-    {
-        $rows = Craft::$app->getDb()
-            ->createCommand('SELECT assetId, missingSince FROM ' . self::MAP_TABLE
-                . ' WHERE missingSince IS NOT NULL ORDER BY missingSince ASC')
-            ->queryAll();
-
-        return array_column($rows, 'missingSince', 'assetId');
-    }
-
-    /**
-     * How many elements relate to each of the given assets. Relations are how Assets fields
-     * store their references, so this is the in-use test — with one blind spot: an asset
-     * referenced only from inside rich text as a `{asset:123:url}` ref tag is not seen.
-     *
-     * @param int[] $assetIds
-     * @return array<int, int> assetId => number of relations
-     */
-    public function usageCounts(array $assetIds): array
-    {
-        if ($assetIds === []) {
-            return [];
-        }
-
-        $rows = Craft::$app->getDb()->createCommand(
-            'SELECT targetId, COUNT(*) AS uses FROM {{%relations}} WHERE targetId IN ('
-            . implode(',', array_map('intval', $assetIds)) . ') GROUP BY targetId',
-        )->queryAll();
-
-        return array_column($rows, 'uses', 'targetId');
-    }
-
-    /**
-     * What an editor has to open to replace each asset: the top-level owner of every
-     * relation, deduplicated.
-     *
-     * Relations point at whatever holds the Assets field, which for a page builder is a
-     * nested entry rather than the page. Linking an editor to a Matrix block is no more
-     * use than the bare count was, so each one is walked up to its root owner. That also
-     * makes the number honest: the same image used in three blocks of one page is one
-     * thing to fix, and a page related on two sites is still one page.
-     *
-     * @param int[] $assetIds
-     * @return array<int, ElementInterface[]> assetId => owning elements
-     */
-    public function usedBy(array $assetIds): array
-    {
-        if ($assetIds === []) {
-            return [];
-        }
-
-        $rows = Craft::$app->getDb()->createCommand(
-            'SELECT DISTINCT targetId, sourceId FROM {{%relations}} WHERE targetId IN ('
-            . implode(',', array_map('intval', $assetIds)) . ')',
-        )->queryAll();
-
-        $owners = [];
-        $byAsset = [];
-
-        foreach ($rows as $row) {
-            $sourceId = (int)$row['sourceId'];
-
-            // Memoised across assets, because one block can hold several of them.
-            if (!array_key_exists($sourceId, $owners)) {
-                $source = Craft::$app->getElements()->getElementById($sourceId, null, null, ['status' => null]);
-                // A relation can outlive what it points at; there is nothing to link to then.
-                $owners[$sourceId] = $source?->getRootOwner();
-            }
-
-            if ($owners[$sourceId] !== null) {
-                $byAsset[(int)$row['targetId']][$owners[$sourceId]->id] = $owners[$sourceId];
-            }
-        }
-
-        return array_map('array_values', $byAsset);
-    }
-
-    /**
-     * The Dash preview URL for an asset, or null if it is not a Dash asset.
-     *
-     * Loaded for the whole volume in one query and held for the request: the control panel
-     * asks per asset, and a folder of 225 would otherwise be 225 queries.
-     */
-    public function previewUrl(int $assetId): ?string
-    {
-        if ($this->previewUrls === null) {
-            $rows = Craft::$app->getDb()
-                ->createCommand('SELECT assetId, previewUrl FROM ' . self::MAP_TABLE)
-                ->queryAll();
-
-            $this->previewUrls = array_map(
-                static fn($url) => $url === '' ? null : $url,
-                array_column($rows, 'previewUrl', 'assetId'),
-            );
-        }
-
-        return $this->previewUrls[$assetId] ?? null;
-    }
-
-    public function missingCount(): int
-    {
-        return (int)Craft::$app->getDb()
-            ->createCommand('SELECT COUNT(*) FROM ' . self::MAP_TABLE . ' WHERE missingSince IS NOT NULL')
-            ->queryScalar();
-    }
 
     public function lastSync(): ?string
     {
@@ -1136,6 +1002,16 @@ class DashSync extends Component
     private function config(): DashConfig
     {
         return Plugin::getInstance()->getDashConfig();
+    }
+
+    private function map(): DashAssetMap
+    {
+        return Plugin::getInstance()->getDashAssetMap();
+    }
+
+    private function usage(): AssetUsage
+    {
+        return Plugin::getInstance()->getAssetUsage();
     }
 
     private function transforms(): DashTransforms

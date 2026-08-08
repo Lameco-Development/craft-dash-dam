@@ -81,9 +81,8 @@ class DashController extends Controller
             $sync = $this->sync();
             $volume = DashVolumes::single();
             $assetIds = Asset::find()->volumeId($volume->id)->status(null)->ids();
-            $uses = $sync->usageCounts($assetIds);
-            $mapped = (int)Craft::$app->getDb()
-                ->createCommand('SELECT COUNT(*) FROM {{%dash_asset_map}}')->queryScalar();
+            $uses = Plugin::getInstance()->getAssetUsage()->counts($assetIds);
+            $mapped = Plugin::getInstance()->getDashAssetMap()->count();
 
             $this->stdout("\nThis will forget everything synced from Dash on this environment:\n\n");
             $this->stdout('  ' . count($assetIds) . " asset(s) in the '{$volume->handle}' volume → trash\n");

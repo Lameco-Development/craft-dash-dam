@@ -14,7 +14,9 @@ use craft\services\Utilities;
 use lameco\dash\console\controllers\DashController;
 use lameco\dash\fs\DashFs;
 use lameco\dash\models\Settings;
+use lameco\dash\services\AssetUsage;
 use lameco\dash\services\DashApi;
+use lameco\dash\services\DashAssetMap;
 use lameco\dash\services\DashConfig;
 use lameco\dash\services\DashSync;
 use lameco\dash\services\DashTransforms;
@@ -25,7 +27,9 @@ use lameco\dash\utilities\DashUtility;
  *
  * @method static Plugin getInstance()
  * @method Settings getSettings()
+ * @property-read AssetUsage $assetUsage
  * @property-read DashApi $dashApi
+ * @property-read DashAssetMap $dashAssetMap
  * @property-read DashConfig $dashConfig
  * @property-read DashSync $dashSync
  * @property-read DashTransforms $dashTransforms
@@ -39,7 +43,9 @@ class Plugin extends BasePlugin
     {
         return [
             'components' => [
+                'assetUsage' => AssetUsage::class,
                 'dashApi' => DashApi::class,
+                'dashAssetMap' => DashAssetMap::class,
                 'dashConfig' => DashConfig::class,
                 'dashSync' => DashSync::class,
                 'dashTransforms' => DashTransforms::class,
@@ -74,7 +80,7 @@ class Plugin extends BasePlugin
                 return;
             }
 
-            $url = Plugin::getInstance()->getDashSync()->previewUrl((int)$event->asset->id);
+            $url = Plugin::getInstance()->getDashAssetMap()->previewUrl((int)$event->asset->id);
 
             if ($url !== null) {
                 $event->url = $url;
@@ -103,9 +109,19 @@ class Plugin extends BasePlugin
         ]);
     }
 
+    public function getAssetUsage(): AssetUsage
+    {
+        return $this->get('assetUsage');
+    }
+
     public function getDashApi(): DashApi
     {
         return $this->get('dashApi');
+    }
+
+    public function getDashAssetMap(): DashAssetMap
+    {
+        return $this->get('dashAssetMap');
     }
 
     public function getDashConfig(): DashConfig

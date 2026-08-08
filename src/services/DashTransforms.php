@@ -22,7 +22,7 @@ use yii\base\Component;
  * instead of a real transform URL.
  *
  * Only assets something actually relates to are worth generating for. On this install 1 of 9
- * Dash assets is referenced, and that ratio is the point of a DAM: most of the library is
+ * Dash assets is in use, and that ratio is the point of a DAM: most of the library is
  * never on the site. It is also what keeps this affordable — every asset generated for costs
  * one Dash download against a metered monthly allowance.
  */
@@ -52,7 +52,7 @@ class DashTransforms extends Component
     }
 
     /**
-     * Generate every named transform for each referenced Dash asset that is missing them.
+     * Generate every named transform for each Dash asset something uses that is missing them.
      *
      * Batched per asset rather than per transform: getLocalImageSource() only downloads when
      * the source is absent, and the cached copy lives until the process ends, so all fifteen
@@ -71,10 +71,10 @@ class DashTransforms extends Component
             return $result;
         }
 
-        // An unreferenced asset is not on a page, so nothing would ask for its transforms.
-        $referenced = array_keys(Plugin::getInstance()->getDashSync()->usageCounts($assetIds));
+        // An asset nothing uses is not on a page, so nothing would ask for its transforms.
+        $inUse = array_keys(Plugin::getInstance()->getAssetUsage()->counts($assetIds));
 
-        if ($referenced === []) {
+        if ($inUse === []) {
             return $result;
         }
 
@@ -86,7 +86,7 @@ class DashTransforms extends Component
 
         $due = [];
 
-        foreach (Asset::find()->id($referenced)->kind(Asset::KIND_IMAGE)->status(null)->all() as $asset) {
+        foreach (Asset::find()->id($inUse)->kind(Asset::KIND_IMAGE)->status(null)->all() as $asset) {
             if ($this->isMissingAnyTransform($asset, $transforms)) {
                 $due[] = $asset;
             }

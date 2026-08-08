@@ -4,9 +4,12 @@ namespace lameco\dash\tests\integration;
 
 use Craft;
 use craft\elements\Asset;
+use craft\helpers\Db;
 use craft\models\Volume;
+use DateTime;
 use lameco\dash\DashVolumes;
 use lameco\dash\Plugin;
+use lameco\dash\services\DashAssetMap;
 use lameco\dash\services\DashConfig;
 use lameco\dash\services\DashSync;
 use PHPUnit\Framework\TestCase;
@@ -103,15 +106,26 @@ abstract class IntegrationTestCase extends TestCase
     }
 
     /**
-     * @return array<string, array<string, mixed>> mapping rows keyed by Dash id
+     * Mapping rows keyed by Dash id — the key the fixtures are written against, which is why
+     * this re-keys rather than handing back DashAssetMap's asset-id map directly.
+     *
+     * @return array<string, array<string, mixed>>
      */
     protected function mapRows(): array
     {
-        $rows = Craft::$app->getDb()
-            ->createCommand('SELECT assetId, dashId, checksum, missingSince, previewUrl FROM {{%dash_asset_map}}')
-            ->queryAll();
+        $rows = [];
 
-        return array_column($rows, null, 'dashId');
+        foreach ($this->assetMap()->all() as $mapping) {
+            $rows[$mapping->dashId] = [
+                'assetId' => $mapping->assetId,
+                'dashId' => $mapping->dashId,
+                'checksum' => $mapping->checksum,
+                'missingSince' => $mapping->missingSince,
+                'previewUrl' => $mapping->previewUrl,
+            ];
+        }
+
+        return $rows;
     }
 
     /**
@@ -132,6 +146,11 @@ abstract class IntegrationTestCase extends TestCase
         return $this->plugin()->getDashConfig();
     }
 
+    protected function assetMap(): DashAssetMap
+    {
+        return $this->plugin()->getDashAssetMap();
+    }
+
     /**
      * Author alt text in Craft the way an editor does, which is the one write the
      * read-only guard deliberately allows.
@@ -150,6 +169,20 @@ abstract class IntegrationTestCase extends TestCase
     {
         $asset->setFocalPoint(['x' => $x, 'y' => $y]);
         self::assertTrue(Craft::$app->getElements()->saveElement($asset, false, true, false));
+    }
+
+    /**
+     * Mark a mapping missing straight in the database, without a reconcile.
+     *
+     * One of two helpers that deliberately write to the mapping table rather than through
+     * DashAssetMap — see also deleteMapRow(). Going through the module would invalidate the
+     * badge cache, which is the very thing the test needs left alone.
+     */
+    protected function stampMissing(string $dashId): void
+    {
+        Craft::$app->getDb()->createCommand()
+            ->update('{{%dash_asset_map}}', ['missingSince' => Db::prepareDateForDb(new DateTime())], ['dashId' => $dashId])
+            ->execute();
     }
 
     /**
@@ -201,7 +234,7 @@ abstract class IntegrationTestCase extends TestCase
     /**
      * Make an asset "in use" the way Assets fields do: a row in the relations table.
      * The source is another element — any element row satisfies the foreign key, and
-     * usageCounts() only looks at the target side.
+     * AssetUsage::counts() only looks at the target side.
      */
     protected function relate(Asset $source, Asset $target): void
     {
