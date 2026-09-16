@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/Lameco-Development/craft-dash-dam/compare/1.3.0...1.3.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* stop counting draft/revision relations as "used by" ([#29](https://github.com/Lameco-Development/craft-dash-dam/issues/29)) ([27c35e6](https://github.com/Lameco-Development/craft-dash-dam/commit/27c35e64e9eaf24a63faa9f1f8bb4493d4f64dc5))
+
 ## [1.3.0](https://github.com/Lameco-Development/craft-dash-dam/compare/1.2.0...1.3.0) (2026-08-04)
 
 
