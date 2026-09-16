@@ -1007,36 +1007,39 @@ class DashSync extends Component
     }
 
     /**
-     * How many elements relate to each of the given assets. Relations are how Assets fields
-     * store their references, so this is the in-use test — with one blind spot: an asset
-     * referenced only from inside rich text as a `{asset:123:url}` ref tag is not seen.
+     * How many *live* elements relate to each of the given assets. Relations are how Assets
+     * fields store their references, so this is the in-use test — with two blind spots: an
+     * asset referenced only from inside rich text as a `{asset:123:url}` ref tag is not seen,
+     * and (deliberately, see usedBy()) a relation held only by a draft or revision.
+     *
+     * Derived from usedBy() rather than its own query, so the count shown on the utility page
+     * and the elements it links to can never disagree about what "in use" means.
      *
      * @param int[] $assetIds
-     * @return array<int, int> assetId => number of relations
+     * @return array<int, int> assetId => number of live elements
      */
     public function usageCounts(array $assetIds): array
     {
-        if ($assetIds === []) {
-            return [];
-        }
-
-        $rows = Craft::$app->getDb()->createCommand(
-            'SELECT targetId, COUNT(*) AS uses FROM {{%relations}} WHERE targetId IN ('
-            . implode(',', array_map('intval', $assetIds)) . ') GROUP BY targetId',
-        )->queryAll();
-
-        return array_column($rows, 'uses', 'targetId');
+        return array_map('count', $this->usedBy($assetIds));
     }
 
     /**
-     * What an editor has to open to replace each asset: the top-level owner of every
-     * relation, deduplicated.
+     * What an editor has to open to replace each asset: the top-level, *canonical* owner of
+     * every relation, deduplicated.
      *
      * Relations point at whatever holds the Assets field, which for a page builder is a
      * nested entry rather than the page. Linking an editor to a Matrix block is no more
      * use than the bare count was, so each one is walked up to its root owner. That also
      * makes the number honest: the same image used in three blocks of one page is one
      * thing to fix, and a page related on two sites is still one page.
+     *
+     * Craft duplicates an entry's whole content — page-builder blocks and their Assets-field
+     * relations included — into every draft and revision it creates. Saving a page ten times
+     * therefore leaves ten copies of the same relation behind, one per revision, and none of
+     * them reachable by a site visitor. Counting those would report one page as ten separate
+     * "used by" entries, and would refuse to trash a Dash-deleted asset that nothing live
+     * references any more purely because old history still does. So a relation only counts
+     * here when its root owner is canonical — the one copy a visitor can actually reach.
      *
      * @param int[] $assetIds
      * @return array<int, ElementInterface[]> assetId => owning elements
@@ -1061,8 +1064,11 @@ class DashSync extends Component
             // Memoised across assets, because one block can hold several of them.
             if (!array_key_exists($sourceId, $owners)) {
                 $source = Craft::$app->getElements()->getElementById($sourceId, null, null, ['status' => null]);
-                // A relation can outlive what it points at; there is nothing to link to then.
-                $owners[$sourceId] = $source?->getRootOwner();
+                $rootOwner = $source?->getRootOwner();
+                // A relation can outlive what it points at, and a draft or revision is
+                // history rather than something a visitor will ever see — neither is
+                // something worth sending an editor to.
+                $owners[$sourceId] = $rootOwner !== null && $rootOwner->getIsCanonical() ? $rootOwner : null;
             }
 
             if ($owners[$sourceId] !== null) {

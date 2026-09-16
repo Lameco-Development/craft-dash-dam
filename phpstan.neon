@@ -7,5 +7,11 @@ parameters:
         - src
         - tests
     excludePaths:
-        # The integration-test app writes runtime state (compiled classes, logs) here.
-        - tests/_craft/storage
+        analyseAndScan:
+            # The integration-test app writes runtime state (compiled classes, logs) here —
+            # only once a test has actually run, so a fresh checkout won't have it yet.
+            - tests/_craft/storage (?)
+    # Tests deliberately assert things the PHPDoc type already promises — e.g. that
+    # Plugin::getInstance() didn't come back null — so a failure names the real cause
+    # instead of surfacing as a fatal error two lines further down.
+    treatPhpDocTypesAsCertain: false

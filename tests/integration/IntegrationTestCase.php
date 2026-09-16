@@ -215,4 +215,19 @@ abstract class IntegrationTestCase extends TestCase
             'sortOrder' => 1,
         ])->execute();
     }
+
+    /**
+     * Give an element the one column usedBy()/usageCounts() actually reads to tell a live
+     * page from a draft or revision of it: `elements.canonicalId`. The harness has no entry
+     * section to create a real draft or revision from, but getIsCanonical() only ever checks
+     * whether this column differs from the element's own id — Element::setCanonicalId()
+     * normalises a self-referencing value back to null — so any *other* real element id is a
+     * faithful stand-in for "this is a derivative of something".
+     */
+    protected function markAsDerivative(Asset $element, int $canonicalOfId): void
+    {
+        Craft::$app->getDb()->createCommand()
+            ->update('{{%elements}}', ['canonicalId' => $canonicalOfId], ['id' => $element->id])
+            ->execute();
+    }
 }
