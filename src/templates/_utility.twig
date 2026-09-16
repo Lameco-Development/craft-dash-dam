@@ -1,5 +1,14 @@
 {% import '_includes/forms.twig' as forms %}
 
+{% macro ownerLink(owner) %}
+    {%- if owner.cpEditUrl -%}
+        <a href="{{ owner.cpEditUrl }}">{{ owner.title ?: owner.id }}</a>
+    {%- else -%}
+        {{ owner.title ?: owner.id }}
+    {%- endif -%}
+{% endmacro %}
+{% from _self import ownerLink %}
+
 {% if syncFolders is empty %}
     <p class="warning with-icon">
         {{ 'Nothing is being synced yet. Pick the Dash folders that belong in Craft under “Synced folders” below, then save.'|t('dash-dam') }}
@@ -75,14 +84,19 @@
                         {% else %}
                             {%- for owner in owners|slice(0, 5) -%}
                                 {%- if not loop.first %}, {% endif -%}
-                                {%- if owner.cpEditUrl -%}
-                                    <a href="{{ owner.cpEditUrl }}">{{ owner.title ?: owner.id }}</a>
-                                {%- else -%}
-                                    {{ owner.title ?: owner.id }}
-                                {%- endif -%}
+                                {{ ownerLink(owner) }}
                             {%- endfor -%}
                             {%- if owners|length > 5 %}
-                                <span class="light">{{ 'and {n} more'|t('dash-dam', { n: owners|length - 5 }) }}</span>
+                                {# A <details> disclosure rather than capping the list silently:
+                                   every owner stays a real, clickable link, it just costs a
+                                   click to reveal the ones past the first five. #}
+                                <details class="dash-used-by-more">
+                                    <summary class="light">{{ 'and {n} more'|t('dash-dam', { n: owners|length - 5 }) }}</summary>
+                                    {%- for owner in owners|slice(5) -%}
+                                        {%- if not loop.first %}, {% endif -%}
+                                        {{ ownerLink(owner) }}
+                                    {%- endfor -%}
+                                </details>
                             {% endif %}
                         {% endif %}
                     </td>

@@ -62,6 +62,28 @@ final class OrphanTest extends IntegrationTestCase
         self::assertSame([], $this->sync()->missingAssets());
     }
 
+    /**
+     * A relation held only by a draft or revision of a page is history a visitor cannot
+     * reach, not a reason to keep serving a broken image. See DashSync::usedBy().
+     */
+    public function testOrphanRelatedOnlyFromADraftOrRevisionIsTrashedAnyway(): void
+    {
+        $this->reconcile();
+        $target = $this->assetByPath('Archief/Oud/oud~cdcd8888.jpg');
+        $source = $this->assetByPath('Corporate/logo~bbbb2222.png');
+        $this->relate($source, $target);
+        // Any other real element id stands in for "this is a draft/revision of something" —
+        // the target asset's id is a convenient one that already exists.
+        $this->markAsDerivative($source, $target->id);
+
+        $this->dash->remove(self::OUD);
+        $counts = $this->reconcile();
+
+        self::assertSame(1, $counts['trashed']);
+        self::assertSame(0, $counts['inUse']);
+        self::assertArrayNotHasKey('Archief/Oud/oud~cdcd8888.jpg', $this->assetsByPath());
+    }
+
     public function testTrashOrphansOffOnlyReports(): void
     {
         $this->reconcile();
